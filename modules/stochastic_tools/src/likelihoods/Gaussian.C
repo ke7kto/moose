@@ -27,6 +27,10 @@ Gaussian::validParams()
       "file_column_name", "Name of column in CSV file to use, by default first column is used.");
   params.addParam<std::vector<Real>>(
       "exp_values", "User-specified experimental values when CSV file is not provided.");
+  params.addParam<bool>("vector_measurements",
+                        false,
+                        "measurements correspond to a series of"
+                        " measurements pertaining to a single experiment.");
   return params;
 }
 
@@ -34,6 +38,7 @@ Gaussian::Gaussian(const InputParameters & parameters)
   : LikelihoodFunctionBase(parameters),
     ReporterInterface(this),
     _log_likelihood(getParam<bool>("log_likelihood")),
+    _vector_measurements(getParam<bool>("vector_measurements")),
     _noise(getReporterValue<Real>("noise"))
 {
   if (isParamValid("exp_values") && isParamValid("file_name"))
@@ -68,9 +73,35 @@ Gaussian::function(const std::vector<Real> & exp,
     val1 = std::log(val1);
     result += val1;
   }
+
   if (!log_likelihood)
     result = std::exp(result);
   return result;
+}
+Real
+Gaussian::function(const std::vector<Real> & exp,
+                   const std::vector<std::vector<Real>> & model_vec,
+                   const Real & noise,
+                   const bool & log_likelihood)
+{
+  Real result = 0.0;
+  Real val1;
+  for (auto model : model_vec)
+    for (unsigned i = 0; i < exp.size(); ++i)
+    {
+      val1 = Normal::pdf(exp[i], model[i], noise);
+      val1 = std::log(val1);
+      result += val1;
+    }
+  if (!log_likelihood)
+    result = std::exp(result);
+  return result;
+}
+
+Real
+Gaussian::function(const std::vector<std::vector<Real>> & x) const
+{
+  return function(_exp_values, x, _noise, _log_likelihood);
 }
 
 Real

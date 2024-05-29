@@ -23,3 +23,20 @@ LikelihoodFunctionBase::LikelihoodFunctionBase(const InputParameters & parameter
   : MooseObject(parameters)
 {
 }
+template <template <typename...> class R = std::vector,
+          typename Top,
+          typename Sub = typename Top::value_type>
+R<typename Sub::value_type>
+flatten(Top const & all)
+{
+  R<typename Sub::value_type> accum;
+  for (auto & sub : all)
+    std::copy(std::begin(sub), std::end(sub), std::inserter(accum, std::end(accum)));
+  return accum;
+}
+Real
+LikelihoodFunctionBase::function(const std::vector<std::vector<Real>> & x) const
+{
+  std::vector<Real> x2 = flatten(x);
+  return function(x2);
+}
