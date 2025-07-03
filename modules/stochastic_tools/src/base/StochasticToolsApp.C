@@ -91,6 +91,11 @@ StochasticToolsApp::registerAll(Factory & f, ActionFactory & af, Syntax & syntax
   addTaskDependency("add_likelihood", "add_user_object");
   addTaskDependency("add_distribution", "add_likelihood");
 
+  registerSyntaxTask("AddLikelihoodVectorAction", "LikelihoodVector/*", "add_likelihood_vector");
+  registerMooseObjectTask("add_likelihood_vector", LikelihoodFunctionVectorBase, false);
+  addTaskDependency("add_likelihood_vector", "add_user_object");
+  addTaskDependency("add_distribution", "add_likelihood_vector");
+
   registerSyntaxTask("AdaptiveSamplerAction", "Samplers", "add_user_object");
   registerSyntaxTask("AdaptiveSamplerAction", "Samplers", "add_postprocessor");
 

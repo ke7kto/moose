@@ -34,3 +34,18 @@ LikelihoodInterface::getLikelihoodFunctionByName(const UserObjectName & name) co
     mooseError("Unable to find a LikelihoodFunction object with the name '" + name + "'");
   return models[0];
 }
+
+LikelihoodFunctionVectorBase *
+LikelihoodInterface::getLikelihoodFunctionVectorByName(const UserObjectName & name) const
+{
+  std::vector<LikelihoodFunctionVectorBase *> models;
+  _likelihood_feproblem.theWarehouse()
+      .query()
+      .condition<AttribName>(name)
+      .condition<AttribSystem>("LikelihoodFunctionVectorBase")
+      .queryInto(models);
+
+  if (models.empty())
+    mooseError("Unable to find a LikelihoodFunction object with the name '" + name + "'");
+  return models[0];
+}

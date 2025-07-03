@@ -12,6 +12,7 @@
 #include "InputParameters.h"
 #include "FEProblemBase.h"
 #include "LikelihoodFunctionBase.h"
+#include "LikelihoodFunctionVectorBase.h"
 
 class LikelihoodInterface
 {
@@ -23,6 +24,8 @@ public:
 protected:
   /// Lookup a LikelihoodFunction object by name and return pointer
   LikelihoodFunctionBase * getLikelihoodFunctionByName(const UserObjectName & name) const;
+  LikelihoodFunctionVectorBase *
+  getLikelihoodFunctionVectorByName(const UserObjectName & name) const;
 
 private:
   /// Reference to FEProblemBase instance

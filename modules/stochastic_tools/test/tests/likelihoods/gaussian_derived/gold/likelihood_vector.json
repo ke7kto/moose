@@ -1,0 +1,122 @@
+{
+    "reporters": {
+        "constant": {
+            "type": "StochasticReporter",
+            "values": {
+                "reporter_transfer:converged": {
+                    "row_begin": 0,
+                    "row_end": 3,
+                    "type": "std::vector<bool>"
+                },
+                "reporter_transfer:samples:u": {
+                    "row_begin": 0,
+                    "row_end": 3,
+                    "type": "std::vector<std::vector<double>>"
+                }
+            }
+        },
+        "likelihoodtest": {
+            "type": "TestLikelihoodVector",
+            "values": {
+                "function": {
+                    "type": "std::vector<double>"
+                },
+                "model_pred_required": {
+                    "type": "std::vector<std::vector<double>>"
+                }
+            }
+        },
+        "noise_specified": {
+            "type": "ConstantReporter",
+            "values": {
+                "noise_specified": {
+                    "type": "std::vector<double>"
+                }
+            }
+        }
+    },
+    "time_steps": [
+        {
+            "constant": {
+                "reporter_transfer:converged": [
+                    false,
+                    false,
+                    false
+                ],
+                "reporter_transfer:samples:u": [
+                    [],
+                    [],
+                    []
+                ]
+            },
+            "likelihoodtest": {
+                "function": [
+                    0.0
+                ],
+                "model_pred_required": []
+            },
+            "noise_specified": {
+                "noise_specified": [
+                    0.2
+                ]
+            },
+            "time": 0.0,
+            "time_step": 0
+        },
+        {
+            "constant": {
+                "reporter_transfer:converged": [
+                    true,
+                    true,
+                    true
+                ],
+                "reporter_transfer:samples:u": [
+                    [
+                        -0.5680287057843963,
+                        -0.5681099994826825,
+                        -0.579358952184121
+                    ],
+                    [
+                        0.7280959183403986,
+                        0.4798693953962975,
+                        0.3238664560871994
+                    ],
+                    [
+                        -0.5925803808370125,
+                        -0.6313304368436156,
+                        -0.6696003761296327
+                    ]
+                ]
+            },
+            "likelihoodtest": {
+                "function": [
+                    5.013820856385405e-42
+                ],
+                "model_pred_required": [
+                    [
+                        -0.5680287057843963,
+                        -0.5681099994826825,
+                        -0.579358952184121
+                    ],
+                    [
+                        0.7280959183403986,
+                        0.4798693953962975,
+                        0.3238664560871994
+                    ],
+                    [
+                        -0.5925803808370125,
+                        -0.6313304368436156,
+                        -0.6696003761296327
+                    ]
+                ]
+            },
+            "noise_specified": {
+                "noise_specified": [
+                    0.2
+                ]
+            },
+            "time": 1.0,
+            "time_step": 1
+        }
+    ]
+}

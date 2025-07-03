@@ -33,11 +33,11 @@ public:
    */
   static Real function(const std::vector<std::vector<Real>> & exp,
                        const std::vector<std::vector<Real>> & model,
-                       const Real & noise,
+                       const std::vector<Real> & noise,
                        const bool & log_likelihood);
   static Real function(const std::vector<std::vector<Real>> & exp,
                        const std::vector<Real> & model,
-                       const Real & noise,
+                       const std::vector<Real> & noise,
                        const bool & log_likelihood);
   static Real function(const std::vector<Real> & exp,
                        const std::vector<Real> & model,
@@ -49,7 +49,7 @@ protected:
   const bool _log_likelihood;
 
   /// Noise value
-  const Real & _noise;
+  const std::vector<Real> & _noise;
 
   /// Experimental data values
   std::vector<std::vector<Real>> _exp_values;

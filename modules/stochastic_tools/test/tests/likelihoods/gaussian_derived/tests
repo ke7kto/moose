@@ -22,6 +22,16 @@
         max_parallel = 2
         detail = 'using a Gaussian type with likelihoods requested and model/experiment values are scalars; '
       []
+      [likelihood_vector]
+        type = 'JSONDiff'
+        input = vecp.i
+        allow_test_objects = true
+        jsondiff = 'likelihood_vector.json'
+        cli_args = "LikelihoodVector/gaussian/log_likelihood='false' Outputs/file_base='likelihood_vector'"
+        min_parallel = 2
+        max_parallel = 2
+        detail = 'using a Gaussian type with likelihoods requested and model/experiment values are vectors; '
+      []
       [truncatedgaussian]
         type = 'JSONDiff'
         input = main.i

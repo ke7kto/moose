@@ -34,7 +34,7 @@ GaussianVector::GaussianVector(const InputParameters & parameters)
   : LikelihoodFunctionVectorBase(parameters),
     ReporterInterface(this),
     _log_likelihood(getParam<bool>("log_likelihood")),
-    _noise(getReporterValue<Real>("noise"))
+    _noise(getReporterValue<std::vector<Real>>("noise"))
 {
   if (isParamValid("exp_values") && isParamValid("file_name"))
     paramError("exp_values", "exp_values and file_name both cannot be set at the same time.");
@@ -75,7 +75,7 @@ GaussianVector::function(const std::vector<Real> & exp,
 Real
 GaussianVector::function(const std::vector<std::vector<Real>> & exp,
                          const std::vector<std::vector<Real>> & model,
-                         const Real & noise,
+                         const std::vector<Real> & noise,
                          const bool & log_likelihood)
 {
   Real result = 0.0;
@@ -86,7 +86,7 @@ GaussianVector::function(const std::vector<std::vector<Real>> & exp,
   {
     for (unsigned int j = 0; j < exp[i].size(); ++j)
     {
-      val1 = Normal::pdf(exp[i][j], model[i][j], noise);
+      val1 = Normal::pdf(exp[i][j], model[i][j], noise[std::min(i, (unsigned)(noise.size() - 1))]);
       val1 = std::log(val1);
       result += val1;
     }

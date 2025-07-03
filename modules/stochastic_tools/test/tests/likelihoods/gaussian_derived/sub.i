@@ -42,7 +42,22 @@
     variable = u
   []
 []
-
+[Positions]
+  [sample_points]
+    type = InputPositions
+    positions = '0.2 0 0
+                 0.5 0 0
+                 0.7 0 0'
+  []
+[]
+[VectorPostprocessors]
+  [samples]
+    type = PositionsFunctorValueSampler
+    functors = u
+    positions = sample_points
+    sort_by = x
+  []
+[]
 [Executioner]
   type = Transient
   num_steps = 5
