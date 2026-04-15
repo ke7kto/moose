@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,6 +26,11 @@ PorousFlowMaterial::validParams()
   params.addPrivateParam<std::string>("pf_material_type", "pf_material");
   params.addClassDescription("This generalises MOOSE's Material class to allow for Materials that "
                              "hold information related to the nodes in the finite element");
+
+  // Needed due to the custom tomfoolery going on with nodal material sizing in
+  // initStatefulProperties()
+  params.set<bool>("_force_stateful_init") = true;
+
   return params;
 }
 
@@ -156,7 +161,7 @@ PorousFlowMaterial::nearestQP(unsigned nodenum) const
 {
   unsigned nearest_qp = 0;
   Real smallest_dist = std::numeric_limits<Real>::max();
-  for (unsigned qp = 1; qp < _qrule->n_points(); ++qp)
+  for (const auto qp : make_range(_qrule->n_points()))
   {
     const Real this_dist = (_current_elem->point(nodenum) - _q_point[qp]).norm();
     if (this_dist < smallest_dist)

@@ -7,7 +7,6 @@ sphere_outer_Tinf = 300 # K
 []
 
 [Problem]
-  coord_type = RZ
   kernel_coverage_check = false
   material_coverage_check = false
 []
@@ -32,6 +31,7 @@ sphere_outer_Tinf = 300 # K
     input = secondary
   []
   allow_renumbering = false
+  coord_type = RZ
 []
 
 [Functions]
@@ -197,7 +197,7 @@ sphere_outer_Tinf = 300 # K
   []
   [heat_balance] # should be equal to 0 upon convergence
     type = ParsedPostprocessor
-    function = '(sphere_convective_out - ptot) / ptot'
+    expression = '(sphere_convective_out - ptot) / ptot'
     pp_names = 'sphere_convective_out ptot'
   []
 []

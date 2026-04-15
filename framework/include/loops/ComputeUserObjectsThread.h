@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -49,6 +49,7 @@ public:
                           BoundaryID bnd_id,
                           const Elem * lower_d_elem = nullptr) override;
   virtual void onInternalSide(const Elem * elem, unsigned int side) override;
+  virtual void onExternalSide(const Elem * elem, unsigned int side) override;
   virtual void onInterface(const Elem * elem, unsigned int side, BoundaryID bnd_id) override;
   virtual void post() override;
   virtual void subdomainChanged() override;

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -143,11 +143,11 @@ public:
    */
   virtual void
   rho_from_p_T(Real p, Real T, Real & rho, Real & drho_dp, Real & drho_dT) const override;
-  virtual void rho_from_p_T(const DualReal & pressure,
-                            const DualReal & temperature,
-                            DualReal & rho,
-                            DualReal & drho_dp,
-                            DualReal & drho_dT) const override;
+  virtual void rho_from_p_T(const ADReal & pressure,
+                            const ADReal & temperature,
+                            ADReal & rho,
+                            ADReal & drho_dp,
+                            ADReal & drho_dT) const override;
 
   /**
    * Specific volume from pressure and temperature
@@ -348,6 +348,17 @@ protected:
   /// function defining dynamic viscosity as a function of temperature and pressure
   const Function * _mu_function;
 
+  /// function defining specific heat as a function of temperature and pressure
+  const Function * _cp_function;
+
   /// constant isochoric specific heat
-  const Real & _cv;
+  const Real _cv;
+  /// whether a constant isochoric specific heat is used
+  const bool _cv_is_constant;
+  /// Reference specific energy
+  const Real _e_ref;
+  /// Reference temperature for the reference specific energy
+  const Real _T_ref;
+  /// Size of temperature intervals when integrating the specific heat to compute the specific energy
+  const Real _integration_dT;
 };

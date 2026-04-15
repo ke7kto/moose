@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,6 +9,8 @@
 
 #include "ADBoundaryFlux3EqnGhostBase.h"
 #include "ADNumericalFlux3EqnBase.h"
+
+#include "libmesh/elem.h"
 
 InputParameters
 ADBoundaryFlux3EqnGhostBase::validParams()
@@ -35,10 +37,14 @@ void
 ADBoundaryFlux3EqnGhostBase::calcFlux(unsigned int iside,
                                       dof_id_type ielem,
                                       const std::vector<ADReal> & U1,
-                                      const RealVectorValue & normal,
+                                      const RealVectorValue & /*normal*/,
                                       std::vector<ADReal> & flux) const
 {
-  const std::vector<ADReal> U2 = getGhostCellSolution(U1);
+  const Elem * elem = _subproblem.mesh().elemPtr(ielem);
+  const Elem * side_elem = elem->build_side_ptr(iside).release();
+  const Point side_center_point = side_elem->vertex_average();
+  delete side_elem;
 
-  flux = _numerical_flux.getFlux(iside, ielem, true, U1, U2, normal(0));
+  const std::vector<ADReal> U2 = getGhostCellSolution(U1, side_center_point);
+  flux = _numerical_flux.getFlux(iside, ielem, true, U1, U2, _normal);
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,7 +11,7 @@
 
 #include "KernelBase.h"
 #include "ADFunctorInterface.h"
-#include "DualRealOps.h"
+#include "MooseVariableInterface.h"
 
 // forward declarations
 template <typename>
@@ -107,6 +107,7 @@ protected:
   const ADTemplateVariablePhiValue<T> & _phi;
 
   ADReal _r;
+  std::vector<Real> _residuals_nonad;
   std::vector<ADReal> _residuals;
 
   /// The current gradient of the shape functions

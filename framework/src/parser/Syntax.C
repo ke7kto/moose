@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -172,6 +172,12 @@ Syntax::replaceActionSyntax(const std::string & action,
 }
 
 void
+Syntax::removeAllActionsForSyntax(const std::string & syntax)
+{
+  _syntax_to_actions.erase(syntax);
+}
+
+void
 Syntax::deprecateActionSyntax(const std::string & syntax)
 {
   const std::string message = "\"[" + syntax + "]\" is deprecated.";
@@ -225,6 +231,20 @@ Syntax::getSyntaxByAction(const std::string & action, const std::string & task)
       syntax.emplace_back(syntax_pair.second.first);
 
   return syntax;
+}
+
+std::vector<std::string>
+Syntax::getNonDeprecatedSyntaxByAction(const std::string & action, const std::string & task)
+{
+  auto syntaxes = getSyntaxByAction(action, task);
+  for (auto syntax_it = begin(syntaxes); syntax_it != end(syntaxes);)
+  {
+    if (isDeprecatedSyntax(*syntax_it))
+      syntax_it = syntaxes.erase(syntax_it);
+    else
+      ++syntax_it;
+  }
+  return syntaxes;
 }
 
 std::string

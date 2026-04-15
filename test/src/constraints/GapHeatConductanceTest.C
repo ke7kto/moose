@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,7 @@
 #include "GapHeatConductanceTest.h"
 #include "Function.h"
 #include "Assembly.h"
+#include "AutomaticMortarGeneration.h"
 
 using namespace Moose;
 
@@ -94,7 +95,7 @@ GapHeatConductanceTest::computeQpResidual(MortarType type)
 void
 GapHeatConductanceTest::computeJacobian(MortarType mortar_type)
 {
-  std::vector<DualReal> residuals;
+  std::vector<ADReal> residuals;
   size_t test_space_size = 0;
   typedef ConstraintJacobianType JType;
   typedef MortarType MType;

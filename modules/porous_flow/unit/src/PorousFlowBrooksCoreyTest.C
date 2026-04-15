@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -121,7 +121,7 @@ TEST(PorousFlowBrooksCoreyTest, drelpermnw)
 
 TEST(PorousFlowBrooksCoreyTest, adrelpermw)
 {
-  DualReal sat = 0.3;
+  ADReal sat = 0.3;
   Moose::derivInsert(sat.derivatives(), 0, 1.0);
 
   const auto adrelperm = PorousFlowBrooksCorey::relativePermeabilityW(sat, 2.5);
@@ -135,7 +135,7 @@ TEST(PorousFlowBrooksCoreyTest, adrelpermw)
 
 TEST(PorousFlowBrooksCoreyTest, adrelpermnw)
 {
-  DualReal sat = 0.3;
+  ADReal sat = 0.3;
   Moose::derivInsert(sat.derivatives(), 0, 1.0);
 
   const auto adrelperm = PorousFlowBrooksCorey::relativePermeabilityNW(sat, 2.5);

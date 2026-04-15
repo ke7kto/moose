@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -20,7 +20,7 @@ ExternalProblem::validParams()
 
   // there is no nonlinear system (we set it as empty in the constructor)
   params.suppressParameter<bool>("ignore_zeros_in_jacobian");
-  params.suppressParameter<bool>("kernel_coverage_check");
+  params.suppressParameter<MooseEnum>("kernel_coverage_check");
   params.suppressParameter<std::vector<NonlinearSystemName>>("nl_sys_names");
   params.suppressParameter<bool>("previous_nl_solution_required");
   params.suppressParameter<bool>("skip_nl_system_check");
@@ -37,14 +37,21 @@ ExternalProblem::ExternalProblem(const InputParameters & parameters) : FEProblem
    * However, MOOSE currently expects it to exist in several locations throughout the framework.
    * Luckily, it can just be empty (no variables).
    */
-  _nl[0] = std::make_shared<NonlinearSystem>(*this, "nl0");
+  if (_num_nl_sys)
+  {
+    _nl[0] = std::make_shared<NonlinearSystem>(*this, "nl0");
+    _solver_systems[0] = std::dynamic_pointer_cast<SolverSystem>(_nl[0]);
+  }
   _aux = std::make_shared<AuxiliarySystem>(*this, "aux0");
+
+  // Set the current nonlinear system to the null system we created.
+  setCurrentNonlinearSystem(0);
 
   /**
    * We still need to create Assembly objects to hold the data structures for working with Aux
    * Variables, which will be used in the external problem.
    */
-  newAssemblyArray(_nl);
+  newAssemblyArray(_solver_systems);
 
   // Create extra vectors and matrices if any
   createTagVectors();
@@ -59,6 +66,7 @@ ExternalProblem::solve(const unsigned int)
   TIME_SECTION("solve", 1, "Solving", false)
 
   syncSolutions(Direction::TO_EXTERNAL_APP);
-  externalSolve();
+  if (shouldSolve())
+    externalSolve();
   syncSolutions(Direction::FROM_EXTERNAL_APP);
 }

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,6 +19,9 @@
 #include "libmesh/nemesis_io.h"
 #include "libmesh/parallel_mesh.h"
 
+using libMesh::ExodusII_IO;
+using libMesh::Nemesis_IO;
+
 registerMooseObject("MooseApp", FileMesh);
 
 InputParameters
@@ -26,24 +29,45 @@ FileMesh::validParams()
 {
   InputParameters params = MooseMesh::validParams();
   params.addRequiredParam<MeshFileName>("file", "The name of the mesh file to read");
+  MooseEnum dims("1=1 2 3", "1");
+  params.addParam<MooseEnum>("dim",
+                             dims,
+                             "This is only required for certain mesh formats where "
+                             "the dimension of the mesh cannot be autodetected. "
+                             "In particular you must supply this for GMSH meshes. "
+                             "Note: This is completely ignored for ExodusII meshes!");
   params.addParam<bool>("clear_spline_nodes",
                         false,
                         "If clear_spline_nodes=true, IsoGeometric Analyis spline nodes "
                         "and constraints are removed from an IGA mesh, after which only "
                         "C^0 Rational-Bernstein-Bezier elements will remain.");
+  params.addDeprecatedParam<bool>("nemesis",
+                                  false,
+                                  "If nemesis=true and file=foo.n, actually reads "
+                                  "foo.n.N.0, foo.n.N.1, ... foo.n.N.N-1, "
+                                  "where N = # CPUs, with NemesisIO.",
+                                  "This parameter should no longer be necessary if you use the "
+                                  "'.n' or '.nem' file extension for Nemesis files");
   params.addClassDescription("Read a mesh from a file.");
   return params;
 }
 
 FileMesh::FileMesh(const InputParameters & parameters)
-  : MooseMesh(parameters),
-    _file_name(getParam<MeshFileName>("file")),
-    _dim(getParam<MooseEnum>("dim"))
+  : MooseMesh(parameters), _file_name(getParam<MeshFileName>("file"))
 {
+  // Detect nemesis files from the extension or the parameter (deprecated)
+  if (isParamSetByUser("nemesis"))
+    _is_nemesis = getParam<bool>("nemesis");
+  else
+    _is_nemesis = (MooseUtils::hasExtension(_file_name, "n", /*strip_exodus_ext =*/true) ||
+                   MooseUtils::hasExtension(_file_name, "nem", true));
+
+  // We may have determined this is a nemesis file from the extension, which MooseMesh cannot do
+  MooseMesh::determineUseDistributedMesh();
 }
 
 FileMesh::FileMesh(const FileMesh & other_mesh)
-  : MooseMesh(other_mesh), _file_name(other_mesh._file_name), _dim(other_mesh._dim)
+  : MooseMesh(other_mesh), _file_name(other_mesh._file_name)
 {
 }
 
@@ -52,7 +76,7 @@ FileMesh::~FileMesh() {}
 std::unique_ptr<MooseMesh>
 FileMesh::safeClone() const
 {
-  return std::make_unique<FileMesh>(*this);
+  return _app.getFactory().copyConstruct(*this);
 }
 
 void
@@ -60,6 +84,7 @@ FileMesh::buildMesh()
 {
   TIME_SECTION("buildMesh", 2, "Reading Mesh");
 
+  // This dimension should get overridden if the mesh reader can determine the dimension
   getMesh().set_mesh_dimension(getParam<MooseEnum>("dim"));
 
   if (_is_nemesis)
@@ -84,7 +109,7 @@ FileMesh::buildMesh()
     // the mesh with the exodus reader instead of using mesh.read().  This will read the mesh on
     // every processor
 
-    if (_app.getExodusFileRestart() && (_file_name.rfind(".exd") < _file_name.size() ||
+    if (_app.getExodusFileRestart() && (_file_name.rfind(".exo") < _file_name.size() ||
                                         _file_name.rfind(".e") < _file_name.size()))
     {
       MooseUtils::checkFileReadable(_file_name);
@@ -98,14 +123,13 @@ FileMesh::buildMesh()
     }
     else
     {
-      // Supports old suffix (xxxx_mesh.cpr -> xxxx-mesh.cpr) and LATEST
       _file_name = FileMeshGenerator::deduceCheckpointPath(*this, _file_name);
 
       // If we are reading a mesh while restarting, then we might have
       // a solution file that relies on that mesh partitioning and/or
       // numbering.  In that case, we need to turn off repartitioning
       // and renumbering, at least at first.
-      bool restarting = _file_name.rfind(".cpr") < _file_name.size();
+      bool restarting = _file_name.rfind(".cpa.gz") < _file_name.size();
 
       const bool skip_partitioning_later = restarting && getMesh().skip_partitioning();
       const bool allow_renumbering_later = restarting && getMesh().allow_renumbering();

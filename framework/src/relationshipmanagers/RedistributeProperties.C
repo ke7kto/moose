@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -36,10 +36,10 @@ RedistributeProperties::operator()(const MeshBase::const_element_iterator &,
 {
 }
 
-std::unique_ptr<GhostingFunctor>
+std::unique_ptr<libMesh::GhostingFunctor>
 RedistributeProperties::clone() const
 {
-  return std::make_unique<RedistributeProperties>(*this);
+  return _app.getFactory().copyConstruct(*this);
 }
 
 std::string

@@ -1,6 +1,6 @@
 # Using Stochastic Tools with Multiphysics Models
 
-The purpose of this document is to present a multiphysics example using the [Stochastic Tools Module](modules/stochastic_tools/index.md). The intention is to showcase the capabilities of the module to produce statistically relevant results including uncertainty propagation and sensitivity, as well as the module's surrogate modeling infrastructure. The problem of interest is a thermomechanics model using a combination of the [Heat Transfer](modules/heat_transfer/index.md) and [Tensor Mechanics](modules/tensor_mechanics/index.md) modules. The problem involves multiple uncertain material properties and multiple quantities of interest (QoI). Using both Monte Carlo sampling and polynomial chaos surrogate modeling, the effect of these properties' uncertainties are quantified with uncertainty propagation and global sensitivity analysis.
+The purpose of this document is to present a multiphysics example using the [Stochastic Tools Module](modules/stochastic_tools/index.md). The intention is to showcase the capabilities of the module to produce statistically relevant results including uncertainty propagation and sensitivity, as well as the module's surrogate modeling infrastructure. The problem of interest is a thermomechanics model using a combination of the [Heat Transfer](modules/heat_transfer/index.md) and [Solid Mechanics](modules/solid_mechanics/index.md) modules. The problem involves multiple uncertain material properties and multiple quantities of interest (QoI). Using both Monte Carlo sampling and polynomial chaos surrogate modeling, the effect of these properties' uncertainties are quantified with uncertainty propagation and global sensitivity analysis.
 
 ## Problem Description
 
@@ -44,7 +44,7 @@ The problem of interest involves a steady-state thermomechanics model. The geome
 
 !row-end!
 
-!listing examples/stochastic/graphite_ring_thermomechanics.i caption=Thermomechanics model input file id=list:thermo
+!listing examples/stochastic/thermomech/graphite_ring_thermomechanics.i caption=Thermomechanics model input file id=list:thermo
 
 ### Uncertain Parameters
 
@@ -85,7 +85,7 @@ There are a total of ten QoIs for the model, which involve temperature and displ
 
 ## Results
 
-In this exercise, we will use the [statistics](Statistics.md) and [Sobol sensitivity](PolynomialChaosReporter.md) capabilities available in the stochastic tools module. The goal of this exercise is to understand how the uncertainty in the parameters affects the the resulting QoIs. This is done through sampling the model at different perturbations of the parameters and performing statistical calculations on resulting QoI values. Two methods are used to perform this analysis. First is using the sampler system to perturb the uncertain properties and retrieve the QoIs which will undergo the analysis. The second is training a [polynomial chaos surrogate](PolynomialChaos.md) and using that reduced order model to sample and perform the analysis. The idea is that many evaluations of the model are necessary to compute accurate statistical quantities and surrogate modeling speeds up this computation by requiring much fewer full model evaluations for training and is significantly faster to evaluate once trained.
+In this exercise, we will use the [statistics](Statistics.md) and [Sobol sensitivity](PolynomialChaosReporter.md) capabilities available in the stochastic tools module. The goal of this exercise is to understand how the uncertainty in the parameters affects the resulting QoIs. This is done through sampling the model at different perturbations of the parameters and performing statistical calculations on resulting QoI values. Two methods are used to perform this analysis. First is using the sampler system to perturb the uncertain properties and retrieve the QoIs which will undergo the analysis. The second is training a [polynomial chaos surrogate](PolynomialChaos.md) and using that reduced order model to sample and perform the analysis. The idea is that many evaluations of the model are necessary to compute accurate statistical quantities and surrogate modeling speeds up this computation by requiring much fewer full model evaluations for training and is significantly faster to evaluate once trained.
 
 Using [latin hypercube sampling](LatinHypercubeSampler.md), the thermomechanics model was run with a total of 100,000 samples, the input file is shown by [list:lhs]. A order four polynomial chaos surrogate was training using a Smolyak sparse quadrature for a total of 7,344 runs of the full model. The training input is shown by [list:train] and the evaluation input is shown by [list:eval]. [tab:rt] shows the run-time for sampling the full order model and training and evaluating the surrogate. We see here that cumulative time for training and evaluating the surrogate is much smaller than just sampling the full order model, this is because building the surrogate required far fewer evaluations of the full model and evaluating the surrogate is much faster than evaluating the full model.
 
@@ -96,11 +96,11 @@ Using [latin hypercube sampling](LatinHypercubeSampler.md), the thermomechanics 
 | Polynomial Chaos --- Training | 7,344 | 13.7 hr  |
 | Polynomial Chaos --- Evaluation | 100,000 | 6.8 s  |
 
-!listing combined/examples/stochastic/lhs_uniform.i id=list:lhs caption=Latin hypercube sampling and statistics input file
+!listing combined/examples/stochastic/thermomech/lhs_uniform.i id=list:lhs caption=Latin hypercube sampling and statistics input file
 
-!listing combined/examples/stochastic/poly_chaos_train_uniform.i id=list:train caption=Polynomial chaos training input file
+!listing combined/examples/stochastic/thermomech/poly_chaos_train_uniform.i id=list:train caption=Polynomial chaos training input file
 
-!listing combined/examples/stochastic/poly_chaos_uniform.i id=list:eval caption=Polynomial chaos evaluation input file
+!listing combined/examples/stochastic/thermomech/poly_chaos_uniform.i id=list:eval caption=Polynomial chaos evaluation input file
 
 ### Statistics
 

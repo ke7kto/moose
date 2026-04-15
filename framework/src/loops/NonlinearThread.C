@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -31,9 +31,11 @@ NonlinearThread::NonlinearThread(FEProblemBase & fe_problem)
     _dg_kernels(_nl.getDGKernelWarehouse()),
     _interface_kernels(_nl.getInterfaceKernelWarehouse()),
     _kernels(_nl.getKernelWarehouse()),
+    _hdg_kernels(_nl.getHDGKernelWarehouse()),
     _has_active_objects(_integrated_bcs.hasActiveObjects() || _dg_kernels.hasActiveObjects() ||
                         _interface_kernels.hasActiveObjects() || _kernels.hasActiveObjects() ||
-                        _fe_problem.haveFV())
+                        _fe_problem.haveFV()),
+    _should_execute_dg(false)
 {
 }
 
@@ -47,7 +49,9 @@ NonlinearThread::NonlinearThread(NonlinearThread & x, Threads::split split)
     _interface_kernels(x._interface_kernels),
     _kernels(x._kernels),
     _tag_kernels(x._tag_kernels),
-    _has_active_objects(x._has_active_objects)
+    _hdg_kernels(x._hdg_kernels),
+    _has_active_objects(x._has_active_objects),
+    _should_execute_dg(x._should_execute_dg)
 {
 }
 
@@ -112,22 +116,23 @@ NonlinearThread::subdomainChanged()
     }
   }
 
+  // Cache these to avoid computing them on every side
+  _subdomain_has_dg = _dg_warehouse->hasActiveBlockObjects(_subdomain, _tid);
+  _subdomain_has_hdg = _hdg_warehouse->hasActiveBlockObjects(_subdomain, _tid);
+
   _fe_problem.setActiveElementalMooseVariables(needed_moose_vars, _tid);
   _fe_problem.setActiveFEVariableCoupleableVectorTags(needed_fe_var_vector_tags, _tid);
   _fe_problem.prepareMaterials(needed_mat_props, _subdomain, _tid);
 }
 
 void
-NonlinearThread::onElement(const Elem * elem)
+NonlinearThread::onElement(const Elem * const elem)
 {
-  _fe_problem.prepare(elem, _tid);
-  _fe_problem.reinitElem(elem, _tid);
-
-  // Set up Sentinel class so that, even if reinitMaterials() throws, we
+  // Set up Sentinel class so that, even if reinitMaterials() throws in prepareElement, we
   // still remember to swap back during stack unwinding.
-  SwapBackSentinel sentinel(_fe_problem, &FEProblem::swapBackMaterials, _tid);
+  SwapBackSentinel sentinel(_fe_problem, &FEProblemBase::swapBackMaterials, this->_tid);
 
-  _fe_problem.reinitMaterials(_subdomain, _tid);
+  prepareElement(elem);
 
   if (dynamic_cast<ComputeJacobianThread *>(this))
     if (_nl.getScalarVariables(_tid).size() > 0)
@@ -152,33 +157,24 @@ NonlinearThread::computeOnElement()
 }
 
 void
-NonlinearThread::onBoundary(const Elem * elem,
-                            unsigned int side,
-                            BoundaryID bnd_id,
-                            const Elem * lower_d_elem /*=nullptr*/)
+NonlinearThread::onBoundary(const Elem * const elem,
+                            const unsigned int side,
+                            const BoundaryID bnd_id,
+                            const Elem * const lower_d_elem /*=nullptr*/)
 {
   if (_ibc_warehouse->hasActiveBoundaryObjects(bnd_id, _tid))
   {
-    _fe_problem.reinitElemFace(elem, side, bnd_id, _tid);
-
-    // Needed to use lower-dimensional variables on Materials
-    if (lower_d_elem)
-      _fe_problem.reinitLowerDElem(lower_d_elem, _tid);
-
-    // Set up Sentinel class so that, even if reinitMaterialsFace() throws, we
-    // still remember to swap back during stack unwinding.
+    // Set up Sentinel class so that, after we swap in reinitMaterialsFace in prepareFace, even if
+    // one of our callees throws we remember to swap back during stack unwinding. We put our
+    // sentinel here as opposed to in prepareFace because we certainly don't want our materials
+    // swapped back before we proceed to residual/Jacobian computation
     SwapBackSentinel sentinel(_fe_problem, &FEProblem::swapBackMaterialsFace, _tid);
 
-    _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
-    _fe_problem.reinitMaterialsBoundary(bnd_id, _tid);
-
+    prepareFace(elem, side, bnd_id, lower_d_elem);
     computeOnBoundary(bnd_id, lower_d_elem);
 
     if (lower_d_elem)
-    {
-      Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
       accumulateLower();
-    }
   }
 }
 
@@ -208,11 +204,11 @@ NonlinearThread::onInterface(const Elem * elem, unsigned int side, BoundaryID bn
       // still remember to swap back during stack unwinding. Note that face, boundary, and interface
       // all operate with the same MaterialData object
       SwapBackSentinel face_sentinel(_fe_problem, &FEProblem::swapBackMaterialsFace, _tid);
-      _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
+      _fe_problem.reinitMaterialsFaceOnBoundary(bnd_id, elem->subdomain_id(), _tid);
       _fe_problem.reinitMaterialsBoundary(bnd_id, _tid);
 
       SwapBackSentinel neighbor_sentinel(_fe_problem, &FEProblem::swapBackMaterialsNeighbor, _tid);
-      _fe_problem.reinitMaterialsNeighbor(neighbor->subdomain_id(), _tid);
+      _fe_problem.reinitMaterialsNeighborOnBoundary(bnd_id, neighbor->subdomain_id(), _tid);
 
       // Has to happen after face and neighbor properties have been computed. Note that we don't use
       // a sentinel here because FEProblem::swapBackMaterialsFace is going to handle face materials,
@@ -222,10 +218,7 @@ NonlinearThread::onInterface(const Elem * elem, unsigned int side, BoundaryID bn
 
       computeOnInterface(bnd_id);
 
-      {
-        Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
-        accumulateNeighbor();
-      }
+      accumulateNeighbor();
     }
   }
 }
@@ -241,7 +234,7 @@ NonlinearThread::computeOnInterface(BoundaryID bnd_id)
 void
 NonlinearThread::onInternalSide(const Elem * elem, unsigned int side)
 {
-  if (_dg_warehouse->hasActiveBlockObjects(_subdomain, _tid))
+  if (_should_execute_dg)
   {
     // Pointer to the neighbor we are currently working on.
     const Elem * neighbor = elem->neighbor_ptr(side);
@@ -258,11 +251,39 @@ NonlinearThread::onInternalSide(const Elem * elem, unsigned int side)
 
     computeOnInternalFace(neighbor);
 
-    {
-      Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
-      accumulateNeighborLower();
-    }
+    accumulateNeighborLower();
   }
+  if (_subdomain_has_hdg)
+  {
+    // Set up Sentinel class so that, after we swap in reinitMaterialsFace in prepareFace, even if
+    // one of our callees throws we remember to swap back during stack unwinding. We put our
+    // sentinel here as opposed to in prepareFace because we certainly don't want our materials
+    // swapped back before we proceed to residual/Jacobian computation
+    SwapBackSentinel sentinel(_fe_problem, &FEProblem::swapBackMaterialsFace, _tid);
+
+    prepareFace(elem, side, Moose::INVALID_BOUNDARY_ID, nullptr);
+    computeOnInternalFace();
+  }
+}
+
+void
+NonlinearThread::onExternalSide(const Elem * elem, unsigned int side)
+{
+  // Check that we don't have any interface kernels defined on this boundary
+  const auto boundary_ids = _mesh.getBoundaryIDs(elem, side);
+
+  bool has_interface_kernels = false;
+  for (const auto bid : boundary_ids)
+    if (_ik_warehouse && _ik_warehouse->hasActiveBoundaryObjects(bid, _tid))
+      has_interface_kernels = true;
+
+  if (has_interface_kernels)
+    mooseError("Element ",
+               elem->id(),
+               " on side ",
+               side,
+               " is missing a neighbor (hence identified as an external side) but "
+               "has interface kernel(s) defined on the boundary.");
 }
 
 void
@@ -313,8 +334,7 @@ NonlinearThread::postElement(const Elem * /*elem*/)
 void
 NonlinearThread::post()
 {
-  _fe_problem.clearActiveElementalMooseVariables(_tid);
-  _fe_problem.clearActiveMaterialProperties(_tid);
+  clearVarsAndMaterials();
 }
 
 void
@@ -411,4 +431,38 @@ NonlinearThread::printBoundaryExecutionInformation(const unsigned int bid) const
   }
 
   _boundaries_exec_printed.insert(bid);
+}
+
+void
+NonlinearThread::prepareFace(const Elem * const elem,
+                             const unsigned int side,
+                             const BoundaryID bnd_id,
+                             const Elem * const lower_d_elem)
+{
+  _fe_problem.reinitElemFace(elem, side, _tid);
+
+  // Needed to use lower-dimensional variables on Materials
+  if (lower_d_elem)
+    _fe_problem.reinitLowerDElem(lower_d_elem, _tid);
+
+  if (bnd_id != Moose::INVALID_BOUNDARY_ID)
+  {
+    _fe_problem.reinitMaterialsFaceOnBoundary(bnd_id, elem->subdomain_id(), _tid);
+    _fe_problem.reinitMaterialsBoundary(bnd_id, _tid);
+  }
+  // Currently only used by HDG
+  else
+    _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
+}
+
+bool
+NonlinearThread::shouldComputeInternalSide(const Elem & elem, const Elem & neighbor) const
+{
+  // ThreadedElementLoop<ConstElemRange>::shouldComputeInternalSide gets expensive on high
+  // h-refinement cases so we avoid it if possible
+  _should_execute_dg = false;
+  if (_subdomain_has_dg)
+    _should_execute_dg =
+        ThreadedElementLoop<ConstElemRange>::shouldComputeInternalSide(elem, neighbor);
+  return _subdomain_has_hdg || _should_execute_dg;
 }

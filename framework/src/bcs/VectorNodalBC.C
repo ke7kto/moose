@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,6 +13,7 @@
 #include "MooseVariableFE.h"
 #include "SystemBase.h"
 #include "NonlinearSystemBase.h"
+#include "FEProblemBase.h"
 
 InputParameters
 VectorNodalBC::validParams()
@@ -26,7 +27,7 @@ VectorNodalBC::VectorNodalBC(const InputParameters & parameters)
     MooseVariableInterface<RealVectorValue>(this,
                                             true,
                                             "variable",
-                                            Moose::VarKindType::VAR_NONLINEAR,
+                                            Moose::VarKindType::VAR_SOLVER,
                                             Moose::VarFieldType::VAR_FIELD_VECTOR),
     _var(*mooseVariable()),
     _current_node(_var.node()),

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,10 +21,14 @@ public:
   static InputParameters validParams();
 
   ParsedMaterialBase(const InputParameters & parameters);
+  virtual ~ParsedMaterialBase() = default;
 
 protected:
+  /// Parameter that the function comes from
+  const std::string _function_param;
+
   /// function expression
-  std::string _function;
+  const std::string _function;
 
   /// constant vectors
   std::vector<std::string> _constant_names;
@@ -33,4 +37,15 @@ protected:
   /// tolerance vectors
   std::vector<std::string> _tol_names;
   std::vector<Real> _tol_values;
+
+  /// Functor vectors (names, count, and symbols)
+  std::vector<MooseFunctorName> _functor_names;
+  std::vector<std::string> _functor_symbols;
+
+  /**
+   * Function to ensure that the names of constants, tolerances, and functors do not overlap with
+   * each other and (optional) additional names.
+   * @param reserved_names optional set of names additionaly not to be allowed.
+   */
+  void validateVectorNames(const std::set<std::string> & reserved_names = {});
 };

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -38,6 +38,9 @@ public:
                                   const Elem * elem,
                                   const Moose::StateArg & state) const override;
   bool hasBlocks(SubdomainID sub_id) const override { return _vector.hasBlocks(sub_id); }
+
+  bool supportsFaceArg() const override final { return _vector.supportsFaceArg(); }
+  bool supportsElemSideQpArg() const override final { return _vector.supportsElemSideQpArg(); }
 
 private:
   /// The parent vector functor

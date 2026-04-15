@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -22,6 +22,7 @@ DiracKernelBase::validParams()
   InputParameters params = ResidualObject::validParams();
   params += MaterialPropertyInterface::validParams();
   params += BlockRestrictable::validParams();
+  params += GeometricSearchInterface::validParams();
 
   params.addParam<bool>("use_displaced_mesh",
                         false,
@@ -36,10 +37,9 @@ DiracKernelBase::validParams()
       "has been added before. If this option is set to false duplicate points are retained"
       "and contribute to residual and Jacobian.");
 
-  MooseEnum point_not_found_behavior("ERROR WARNING IGNORE", "IGNORE");
   params.addParam<MooseEnum>(
       "point_not_found_behavior",
-      point_not_found_behavior,
+      MooseEnum(getPointNotFoundBehaviorOptions(), "IGNORE"),
       "By default (IGNORE), it is ignored if an added point cannot be located in the "
       "specified subdomains. If this option is set to ERROR, this situation will result in an "
       "error. If this option is set to WARNING, then a warning will be issued.");
@@ -51,6 +51,8 @@ DiracKernelBase::validParams()
 
   params.addParamNamesToGroup("use_displaced_mesh drop_duplicate_points", "Advanced");
   params.declareControllable("enable");
+  params.registerSystemAttributeName("DiracKernel");
+
   return params;
 }
 
@@ -76,14 +78,8 @@ DiracKernelBase::DiracKernelBase(const InputParameters & parameters)
   statefulPropertiesAllowed(false);
 }
 
-Real
-DiracKernelBase::computeQpOffDiagJacobian(unsigned int /*jvar*/)
-{
-  return 0;
-}
-
 void
-DiracKernelBase::addPoint(const Elem * elem, Point p, unsigned /*id*/)
+DiracKernelBase::addPoint(const Elem * elem, Point p, unsigned /*id*/, Real value)
 {
   if (!elem || !hasBlocks(elem->subdomain_id()))
   {
@@ -108,31 +104,32 @@ DiracKernelBase::addPoint(const Elem * elem, Point p, unsigned /*id*/)
   if (elem->processor_id() != processor_id())
     return;
 
-  _dirac_kernel_info.addPoint(elem, p);
-  _local_dirac_kernel_info.addPoint(elem, p);
+  _dirac_kernel_info.addPoint(elem, p, value);
+  _local_dirac_kernel_info.addPoint(elem, p, value);
 }
 
 const Elem *
-DiracKernelBase::addPoint(Point p, unsigned id)
+DiracKernelBase::addPoint(Point p, unsigned id, Real value)
 {
   // Make sure that this method was called with the same id on all
   // processors.  It's an extra communication, though, so let's only
   // do it in DEBUG mode.
   libmesh_assert(comm().verify(id));
+  libmesh_assert(comm().verify(value));
 
   if (id != libMesh::invalid_uint)
-    return addPointWithValidId(p, id);
+    return addPointWithValidId(p, id, value);
 
   // If id == libMesh::invalid_uint (the default), the user is not
   // enabling caching when they add Dirac points.  So all we can do is
   // the PointLocator lookup, and call the other addPoint() method.
   const Elem * elem = _dirac_kernel_info.findPoint(p, _mesh, blockIDs());
-  addPoint(elem, p, id);
+  addPoint(elem, p, id, value);
   return elem;
 }
 
 const Elem *
-DiracKernelBase::addPointWithValidId(Point p, unsigned id)
+DiracKernelBase::addPointWithValidId(Point p, unsigned id, Real value)
 {
   // The Elem we'll eventually return.  We can't return early on some
   // processors, because we may need to call parallel_only() functions in
@@ -170,7 +167,7 @@ DiracKernelBase::addPointWithValidId(Point p, unsigned id)
 
     // Call the other addPoint() method.  This method ignores non-local
     // and NULL elements automatically.
-    addPoint(elem, p, id);
+    addPoint(elem, p, id, value);
     return_elem = elem;
   }
 
@@ -222,7 +219,7 @@ DiracKernelBase::addPointWithValidId(Point p, unsigned id)
       // return its result.
       if (active && contains_point)
       {
-        addPoint(cached_elem, p, id);
+        addPoint(cached_elem, p, id, value);
         return_elem = cached_elem;
         break; // out of while loop
       }
@@ -240,7 +237,7 @@ DiracKernelBase::addPointWithValidId(Point p, unsigned id)
           if (active_children[c]->contains_point(p))
           {
             updateCaches(cached_elem, active_children[c], p, id);
-            addPoint(active_children[c], p, id);
+            addPoint(active_children[c], p, id, value);
             return_elem = active_children[c];
             break; // out of for loop
           }
@@ -305,7 +302,7 @@ DiracKernelBase::addPointWithValidId(Point p, unsigned id)
     const Elem * elem = _dirac_kernel_info.findPoint(p, _mesh, blockIDs());
 
     updateCaches(cached_elem, elem, p, id);
-    addPoint(elem, p, id);
+    addPoint(elem, p, id, value);
     return_elem = elem;
   }
 

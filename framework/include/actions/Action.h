@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,17 +9,13 @@
 
 #pragma once
 
-#include "MooseBase.h"
-#include "MooseBaseParameterInterface.h"
-#include "MooseBaseErrorInterface.h"
+#include "ParallelParamObject.h"
 #include "InputParameters.h"
 #include "MeshMetaDataInterface.h"
 #include "Registry.h"
 #include "PerfGraphInterface.h"
-#include "DataFileInterface.h"
 #include "MooseObjectParameterName.h"
-
-#include "libmesh/parallel_object.h"
+#include "SolutionInvalidInterface.h"
 
 #include <string>
 #include <ostream>
@@ -35,15 +31,15 @@ class Factory;
 /**
  * Base class for actions.
  */
-class Action : public MooseBase,
-               public MooseBaseParameterInterface,
-               public MooseBaseErrorInterface,
+class Action : public ParallelParamObject,
                public MeshMetaDataInterface,
                public PerfGraphInterface,
-               public libMesh::ParallelObject,
-               public DataFileInterface<Action>
+               public SolutionInvalidInterface
 {
 public:
+  /// The name of the parameter that contains the unique action name
+  static const std::string unique_action_name_param;
+
   static InputParameters validParams();
 
   Action(const InputParameters & parameters);
@@ -54,6 +50,9 @@ public:
    * The method called externally that causes the action to act()
    */
   void timedAct();
+
+  // To get warnings tracked in the SolutionInvalidityOutput
+  usingCombinedWarningSolutionWarnings;
 
 private:
   /**
@@ -119,6 +118,34 @@ protected:
    * Method to add objects to the simulation or perform other setup tasks.
    */
   virtual void act() = 0;
+
+  /**
+   * Associates the object's parameters \p params with the input location from this
+   * Action's parameter with the name \p param_name, if one exists.
+   *
+   * For example, you have a parameter in this action of type bool with name "add_mesh".
+   * You then add an action within this action that creates a mesh if this param is
+   * true. If you call associateWithParameter("add_mesh", action_params) where
+   * action_params are the parameters for the action, we then associate that action
+   * with the "add_mesh" parameter. Therefore, the resulting created mesh will also
+   * be associated with the "add_mesh" param and any errors that are non-parameter errors
+   * (i.e., mooseError/mooseWarning) will have the line context of the "add_mesh"
+   * parameter in this action. The same goes for any errors that are produce within
+   * the created action.
+   */
+  void associateWithParameter(const std::string & param_name, InputParameters & params) const;
+
+  /**
+   * The same as associateWithParameter() without \p from_params, but instead
+   * allows you to associate this with another object's parameters instead of the
+   * parameters from this action.
+   *
+   * An example here is when you want to associate the creation of an action with
+   * an argument from the application.
+   */
+  void associateWithParameter(const InputParameters & from_params,
+                              const std::string & param_name,
+                              InputParameters & params) const;
 
   // The registered syntax for this block if any
   std::string _registered_identifier;

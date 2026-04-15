@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,6 +17,8 @@
 #include "ArbitraryQuadrature.h"
 
 #include "libmesh/quadrature_monomial.h"
+
+using namespace libMesh;
 
 template <>
 InputParameters
@@ -78,20 +80,6 @@ MooseVariableFE<OutputType>::MooseVariableFE(const InputParameters & parameters)
                                                       this->_assembly.qRuleFace(), // Place holder
                                                       this->_assembly.node(),      // Place holder
                                                       this->_assembly.lowerDElem());
-}
-
-template <typename OutputType>
-Moose::VarFieldType
-MooseVariableFE<OutputType>::fieldType() const
-{
-  if (std::is_same<OutputType, Real>::value)
-    return Moose::VarFieldType::VAR_FIELD_STANDARD;
-  else if (std::is_same<OutputType, RealVectorValue>::value)
-    return Moose::VarFieldType::VAR_FIELD_VECTOR;
-  else if (std::is_same<OutputType, RealEigenVector>::value)
-    return Moose::VarFieldType::VAR_FIELD_ARRAY;
-  else
-    mooseError("Unknown variable field type");
 }
 
 template <typename OutputType>
@@ -175,42 +163,42 @@ MooseVariableFE<OutputType>::getDofIndices(const Elem * elem,
 }
 
 template <typename OutputType>
-typename MooseVariableFE<OutputType>::OutputData
+typename MooseVariableFE<OutputType>::DofValue
 MooseVariableFE<OutputType>::getNodalValue(const Node & node) const
 {
   return _element_data->getNodalValue(node, Moose::Current);
 }
 
 template <typename OutputType>
-typename MooseVariableFE<OutputType>::OutputData
+typename MooseVariableFE<OutputType>::DofValue
 MooseVariableFE<OutputType>::getNodalValueOld(const Node & node) const
 {
   return _element_data->getNodalValue(node, Moose::Old);
 }
 
 template <typename OutputType>
-typename MooseVariableFE<OutputType>::OutputData
+typename MooseVariableFE<OutputType>::DofValue
 MooseVariableFE<OutputType>::getNodalValueOlder(const Node & node) const
 {
   return _element_data->getNodalValue(node, Moose::Older);
 }
 
 template <typename OutputType>
-typename MooseVariableFE<OutputType>::OutputData
+typename MooseVariableFE<OutputType>::DofValue
 MooseVariableFE<OutputType>::getElementalValue(const Elem * elem, unsigned int idx) const
 {
   return _element_data->getElementalValue(elem, Moose::Current, idx);
 }
 
 template <typename OutputType>
-typename MooseVariableFE<OutputType>::OutputData
+typename MooseVariableFE<OutputType>::DofValue
 MooseVariableFE<OutputType>::getElementalValueOld(const Elem * elem, unsigned int idx) const
 {
   return _element_data->getElementalValue(elem, Moose::Old, idx);
 }
 
 template <typename OutputType>
-typename MooseVariableFE<OutputType>::OutputData
+typename MooseVariableFE<OutputType>::DofValue
 MooseVariableFE<OutputType>::getElementalValueOlder(const Elem * elem, unsigned int idx) const
 {
   return _element_data->getElementalValue(elem, Moose::Older, idx);
@@ -252,7 +240,7 @@ MooseVariableFE<OutputType>::addSolutionNeighbor(const DenseVector<Number> & v)
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValue() const
 {
   mooseDeprecated("Use dofValues instead of dofValue");
@@ -260,112 +248,112 @@ MooseVariableFE<OutputType>::dofValue() const
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValues() const
 {
   return _element_data->dofValues();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesOld() const
 {
   return _element_data->dofValuesOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesOlder() const
 {
   return _element_data->dofValuesOlder();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesPreviousNL() const
 {
   return _element_data->dofValuesPreviousNL();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesNeighbor() const
 {
   return _neighbor_data->dofValues();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesOldNeighbor() const
 {
   return _neighbor_data->dofValuesOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesOlderNeighbor() const
 {
   return _neighbor_data->dofValuesOlder();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesPreviousNLNeighbor() const
 {
   return _neighbor_data->dofValuesPreviousNL();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesDot() const
 {
   return _element_data->dofValuesDot();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesDotDot() const
 {
   return _element_data->dofValuesDotDot();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesDotOld() const
 {
   return _element_data->dofValuesDotOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesDotDotOld() const
 {
   return _element_data->dofValuesDotDotOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesDotNeighbor() const
 {
   return _neighbor_data->dofValuesDot();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesDotDotNeighbor() const
 {
   return _neighbor_data->dofValuesDotDot();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesDotOldNeighbor() const
 {
   return _neighbor_data->dofValuesDotOld();
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::dofValuesDotDotOldNeighbor() const
 {
   return _neighbor_data->dofValuesDotDotOld();
@@ -591,14 +579,14 @@ MooseVariableFE<OutputType>::nodalValueNeighbor() const
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::nodalVectorTagValue(TagID tag) const
 {
   return _element_data->nodalVectorTagValue(tag);
 }
 
 template <typename OutputType>
-const typename MooseVariableFE<OutputType>::DoFValue &
+const typename MooseVariableFE<OutputType>::DofValues &
 MooseVariableFE<OutputType>::nodalMatrixTagValue(TagID tag) const
 {
   return _element_data->nodalMatrixTagValue(tag);
@@ -697,45 +685,30 @@ MooseVariableFE<OutputType>::setNodalValue(const OutputType & value, unsigned in
 
 template <typename OutputType>
 void
-MooseVariableFE<OutputType>::setDofValue(const OutputData & value, unsigned int index)
+MooseVariableFE<OutputType>::setDofValue(const DofValue & value, unsigned int index)
 {
   _element_data->setDofValue(value, index);
 }
 
 template <typename OutputType>
 void
-MooseVariableFE<OutputType>::setDofValues(const DenseVector<OutputData> & values)
+MooseVariableFE<OutputType>::setDofValues(const DenseVector<DofValue> & values)
 {
   _element_data->setDofValues(values);
 }
 
 template <typename OutputType>
 void
-MooseVariableFE<OutputType>::setLowerDofValues(const DenseVector<OutputData> & values)
+MooseVariableFE<OutputType>::setLowerDofValues(const DenseVector<DofValue> & values)
 {
   _lower_data->setDofValues(values);
 }
 
 template <typename OutputType>
 void
-MooseVariableFE<OutputType>::insertNodalValue(NumericVector<Number> & residual,
-                                              const OutputData & v)
+MooseVariableFE<OutputType>::insertNodalValue(NumericVector<Number> & residual, const DofValue & v)
 {
   _element_data->insertNodalValue(residual, v);
-}
-
-template <typename OutputType>
-bool
-MooseVariableFE<OutputType>::isArray() const
-{
-  return std::is_same<OutputType, RealEigenVector>::value;
-}
-
-template <typename OutputType>
-bool
-MooseVariableFE<OutputType>::isVector() const
-{
-  return std::is_same<OutputType, RealVectorValue>::value;
 }
 
 template <typename OutputType>
@@ -889,8 +862,6 @@ typename MooseVariableFE<OutputType>::ValueType
 MooseVariableFE<OutputType>::evaluate(const NodeArg & node_arg, const StateArg & state) const
 {
   mooseAssert(node_arg.node, "Must have a node");
-  mooseAssert(this->hasBlocks(node_arg.subdomain_id),
-              "Our variable should be defined on the requested subdomain ID");
   const Node & node = *node_arg.node;
   mooseAssert(node.n_dofs(this->_sys.number(), this->number()),
               "Our variable must have dofs on the requested node");
@@ -968,7 +939,7 @@ MooseVariableFE<OutputType>::computeSolution(const Elem * const elem,
       Moose::derivInsert(dof_values.back().derivatives(), dof_index, 1.);
     if (computing_dot)
     {
-      if (_var_kind == Moose::VAR_NONLINEAR)
+      if (_var_kind == Moose::VAR_SOLVER)
       {
         dof_values_dot.push_back(dof_values.back());
         _time_integrator->computeADTimeDerivatives(
@@ -1098,13 +1069,19 @@ MooseVariableFE<OutputType>::faceEvaluate(const FaceArg & face_arg,
   };
 
   const auto continuity = this->getContinuity();
-  const bool on_elem = !face_arg.face_side || (face_arg.face_side == face_arg.fi->elemPtr());
-  const bool on_neighbor =
-      !face_arg.face_side || (face_arg.face_side == face_arg.fi->neighborPtr());
-  if (on_neighbor)
-    mooseAssert(
-        face_arg.fi->neighborPtr(),
-        "If we are signaling we should evaluate on the neighbor, we better have a neighbor");
+  bool on_elem;
+  bool on_neighbor;
+  if (!face_arg.face_side)
+  {
+    on_elem = this->hasBlocks(face_arg.fi->elemPtr()->subdomain_id());
+    on_neighbor =
+        face_arg.fi->neighborPtr() && this->hasBlocks(face_arg.fi->neighborPtr()->subdomain_id());
+  }
+  else
+  {
+    on_elem = face_arg.face_side == face_arg.fi->elemPtr();
+    on_neighbor = face_arg.face_side == face_arg.fi->neighborPtr();
+  }
 
   // Only do multiple evaluations if we are not continuous and we are on an internal face
   if ((continuity != C_ZERO && continuity != C_ONE) && on_elem && on_neighbor)
@@ -1172,9 +1149,12 @@ template <typename OutputType>
 typename MooseVariableFE<OutputType>::DotType
 MooseVariableFE<OutputType>::evaluateDot(const ElemQpArg & elem_qp, const StateArg & state) const
 {
-  mooseAssert(_time_integrator && _time_integrator->dt(),
+  mooseAssert(_time_integrator,
               "A time derivative is being requested but we do not have a time integrator so we'll "
               "have no idea how to compute it");
+  mooseAssert(_time_integrator->dt(),
+              "A time derivative is being requested but the time integrator wants to perform a 0s "
+              "time step");
   evaluateOnElement(elem_qp, state, /*query_cache=*/true);
   const auto qp = elem_qp.qp;
   mooseAssert(qp < _current_elem_qp_functor_dot.size(),
@@ -1186,9 +1166,12 @@ template <typename OutputType>
 typename MooseVariableFE<OutputType>::DotType
 MooseVariableFE<OutputType>::evaluateDot(const ElemArg & elem_arg, const StateArg & state) const
 {
-  mooseAssert(_time_integrator && _time_integrator->dt(),
+  mooseAssert(_time_integrator,
               "A time derivative is being requested but we do not have a time integrator so we'll "
               "have no idea how to compute it");
+  mooseAssert(_time_integrator->dt(),
+              "A time derivative is being requested but the time integrator wants to perform a 0s "
+              "time step");
   const QMonomial qrule(elem_arg.elem->dim(), CONSTANT);
   // We can use whatever we want for the point argument since it won't be used
   const ElemQpArg elem_qp_arg{elem_arg.elem, /*qp=*/0, &qrule, Point(0, 0, 0)};
@@ -1200,9 +1183,12 @@ template <typename OutputType>
 typename MooseVariableFE<OutputType>::GradientType
 MooseVariableFE<OutputType>::evaluateGradDot(const ElemArg & elem_arg, const StateArg & state) const
 {
-  mooseAssert(_time_integrator && _time_integrator->dt(),
+  mooseAssert(_time_integrator,
               "A time derivative is being requested but we do not have a time integrator so we'll "
               "have no idea how to compute it");
+  mooseAssert(_time_integrator->dt(),
+              "A time derivative is being requested but the time integrator wants to perform a 0s "
+              "time step");
   const QMonomial qrule(elem_arg.elem->dim(), CONSTANT);
   // We can use whatever we want for the point argument since it won't be used
   const ElemQpArg elem_qp_arg{elem_arg.elem, /*qp=*/0, &qrule, Point(0, 0, 0)};
@@ -1387,6 +1373,15 @@ MooseVariableFE<OutputType>::jacobianSetup()
   _current_elem_qp_functor_elem = nullptr;
   _current_elem_side_qp_functor_elem_side = std::make_pair(nullptr, libMesh::invalid_uint);
   MooseVariableField<OutputType>::jacobianSetup();
+}
+
+template <typename OutputType>
+void
+MooseVariableFE<OutputType>::sizeMatrixTagData()
+{
+  _element_data->sizeMatrixTagData();
+  _neighbor_data->sizeMatrixTagData();
+  _lower_data->sizeMatrixTagData();
 }
 
 template class MooseVariableFE<Real>;

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -44,7 +44,8 @@ public:
                         const Real wire_diameter,
                         const Real wire_pitch,
                         const unsigned int n_rings,
-                        const unsigned int axis);
+                        const unsigned int axis,
+                        const Real rotation_around_axis = 0);
 
   /**
    * Distance from a point and a gap
@@ -103,6 +104,13 @@ public:
    * @return whether this gap is the last in the ring
    */
   bool lastGapInRing(const unsigned int gap_index) const;
+
+  /**
+   * Get the index of the ring for a certain pin index
+   * @param[in] pin pin index
+   * @return ring index
+   */
+  unsigned int ringIndex(const unsigned int pin) const;
 
   /**
    * Get the unit normals for all of the gaps
@@ -583,7 +591,19 @@ public:
    */
   bool insideLattice(const Point & point) const;
 
-  std::pair<int, int> sortedGap(const int & id0, const int & id1) const;
+  /**
+   * Conversion from lattice pin indexing to the 2D input file index. The indexing matches like
+   * this. Note that you have a 30 degree rotation between the 2D input and the positions output
+   *  2 1
+   * 3 0 6
+   *  4 5
+   * @param pin_index index of the pin in the utility ring-wise indexing
+   * @param row_index row index (from the top) in the 2D input
+   * @param within_row_index index within the row
+   */
+  void get2DInputPatternIndex(const unsigned int pin_index,
+                              unsigned int & row_index,
+                              unsigned int & within_row_index) const;
 
 protected:
   /**
@@ -613,6 +633,12 @@ protected:
 
   /// Vertical axis of the bundle along which the pins are aligned
   const unsigned int _axis;
+
+  /// Rotation around the axis to apply to the lattice
+  const Real _rotation_around_axis;
+
+  /// Rotation matrix to apply the rotation why
+  const RealTensorValue _rotation_matrix;
 
   /// Side length of duct
   const Real _bundle_side_length;

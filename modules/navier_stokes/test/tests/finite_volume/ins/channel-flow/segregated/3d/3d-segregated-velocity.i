@@ -42,24 +42,24 @@ pressure_tag = "pressure_grad"
   [vel_x]
     type = INSFVVelocityVariable
     initial_condition = 0.0
-    nl_sys = u_system
+    solver_sys = u_system
     two_term_boundary_expansion = false
   []
   [vel_y]
     type = INSFVVelocityVariable
     initial_condition = 0.0
-    nl_sys = v_system
+    solver_sys = v_system
     two_term_boundary_expansion = false
   []
   [vel_z]
     type = INSFVVelocityVariable
     initial_condition = 0.5
-    nl_sys = w_system
+    solver_sys = w_system
     two_term_boundary_expansion = false
   []
   [pressure]
     type = INSFVPressureVariable
-    nl_sys = pressure_system
+    solver_sys = pressure_system
     initial_condition = 0.2
     two_term_boundary_expansion = false
   []
@@ -148,19 +148,19 @@ pressure_tag = "pressure_grad"
     type = INSFVInletVelocityBC
     boundary = 'back'
     variable = vel_x
-    function = '0'
+    functor = '0'
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'back'
     variable = vel_y
-    function = '0'
+    functor = '0'
   []
   [inlet-w]
     type = INSFVInletVelocityBC
     boundary = 'back'
     variable = vel_z
-    function = '1.1'
+    functor = '1.1'
   []
   [walls-u]
     type = INSFVNoSlipWallBC
@@ -195,7 +195,7 @@ pressure_tag = "pressure_grad"
 []
 
 [Executioner]
-  type = SIMPLE
+  type = SIMPLENonlinearAssembly
   rhie_chow_user_object = 'rc'
   momentum_systems = 'u_system v_system w_system'
   pressure_system = 'pressure_system'
@@ -211,7 +211,7 @@ pressure_tag = "pressure_grad"
   momentum_l_tol = 0
   pressure_l_tol = 0
   print_fields = false
-
+  continue_on_max_its = true
 []
 
 [Outputs]

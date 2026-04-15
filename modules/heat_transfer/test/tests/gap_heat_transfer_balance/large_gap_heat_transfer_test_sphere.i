@@ -6,15 +6,12 @@ sphere_outer_Tinf = 300 # K
   family = LAGRANGE
 []
 
-[Problem]
-  coord_type = RZ
-[]
-
 [Mesh]
   [file]
     type = FileMeshGenerator
     file = cyl2D.e
   []
+  coord_type = RZ
 []
 
 [Functions]
@@ -166,7 +163,7 @@ sphere_outer_Tinf = 300 # K
   []
   [heat_balance] # should be equal to 0 upon convergence
     type = ParsedPostprocessor
-    function = '(sphere_convective_out - ptot) / ptot'
+    expression = '(sphere_convective_out - ptot) / ptot'
     pp_names = 'sphere_convective_out ptot'
   []
 []

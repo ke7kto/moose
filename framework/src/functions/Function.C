@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,30 +8,19 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "Function.h"
+#include "FEProblemBase.h"
 
 using namespace Moose;
 
 InputParameters
 Function::validParams()
 {
-  InputParameters params = MooseObject::validParams();
-  params += SetupInterface::validParams();
-
-  params.registerBase("Function");
-
+  InputParameters params = FunctionBase::validParams();
   return params;
 }
 
 Function::Function(const InputParameters & parameters)
-  : MooseObject(parameters),
-    SetupInterface(this),
-    TransientInterface(this),
-    PostprocessorInterface(this),
-    UserObjectInterface(this),
-    Restartable(this, "Functions"),
-    MeshChangedInterface(parameters),
-    ScalarCoupleable(this),
-    Moose::FunctorBase<Real>(name())
+  : FunctionBase(parameters), Moose::FunctorBase<Real>(name())
 {
 }
 
@@ -81,6 +70,12 @@ Function::timeDerivative(Real /*t*/, const Point & /*p*/) const
 {
   mooseError("timeDerivative method not implemented");
   return 0;
+}
+
+Real
+Function::timeIntegral(Real /*t1*/, Real /*t2*/, const Point & /*p*/) const
+{
+  mooseError("timeIntegral() not implemented.");
 }
 
 RealVectorValue

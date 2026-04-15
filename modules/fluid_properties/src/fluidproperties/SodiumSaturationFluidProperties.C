@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -52,11 +52,11 @@ SodiumSaturationFluidProperties::rho_from_p_T(
 }
 
 void
-SodiumSaturationFluidProperties::rho_from_p_T(const DualReal & pressure,
-                                              const DualReal & temperature,
-                                              DualReal & rho,
-                                              DualReal & drho_dp,
-                                              DualReal & drho_dT) const
+SodiumSaturationFluidProperties::rho_from_p_T(const ADReal & pressure,
+                                              const ADReal & temperature,
+                                              ADReal & rho,
+                                              ADReal & drho_dp,
+                                              ADReal & drho_dT) const
 {
   rho = SinglePhaseFluidProperties::rho_from_p_T(pressure, temperature);
   drho_dp = 0.0;

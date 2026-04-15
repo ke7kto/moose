@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,7 +21,7 @@
 #include "MooseUtils.h"
 
 class MooseObject;
-class Storage;
+class WarehouseStorage;
 class TheWarehouse;
 
 /// Attribute is an abstract class that can be implemented in order to track custom metadata about
@@ -515,7 +515,7 @@ private:
 
   void readAttribs(const MooseObject * obj, std::vector<std::unique_ptr<Attribute>> & attribs);
 
-  std::unique_ptr<Storage> _store;
+  std::unique_ptr<WarehouseStorage> _store;
   std::vector<std::shared_ptr<MooseObject>> _objects;
   std::unordered_map<MooseObject *, std::size_t> _obj_ids;
 

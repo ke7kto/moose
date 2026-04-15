@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #pragma once
+
 #include "ReporterTransferInterface.h"
 #include "MultiAppTransfer.h"
 
@@ -38,4 +39,16 @@ protected:
 
 private:
   virtual void checkSiblingsTransferSupported() const override;
+  /// determines transfer type
+  bool _distribute_reporter_vector;
+
+  /**
+   * Sets transfer modes for reporters when distributing.
+   * @param main_app The main app's shared pointer.
+   * @param main_app_rep_names A vector containing the names of reporters in the main app.
+   * @param sub_app_rep_names A vector containing the names of reporters in the sub apps.
+   */
+  void setVectorReporterTransferModes(const std::shared_ptr<MultiApp> & main_app,
+                                      const std::vector<ReporterName> & main_app_rep_names,
+                                      const std::vector<ReporterName> & sub_app_rep_names);
 };

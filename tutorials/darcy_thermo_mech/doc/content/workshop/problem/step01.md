@@ -53,7 +53,7 @@ An executable is produced by compiling an application or a MOOSE module. It can 
 to run input files.
 
 ```bash
-cd ~/projects/moose/tutorials/darcy-thermo_mech/step01_diffusion
+cd ~/projects/moose/tutorials/darcy_thermo_mech/step01_diffusion
 make -j 12 # use number of processors for your system
 cd problems
 ../darcy_thermo_mech-opt -i step1.i
@@ -64,3 +64,4 @@ cd problems
 ## Step 1: Result
 
 !media darcy_thermo_mech/step01_result.png
+       alt=Pressure field result for the simulation above.

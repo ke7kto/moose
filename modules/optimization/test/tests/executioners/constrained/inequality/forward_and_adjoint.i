@@ -18,7 +18,7 @@
   [temperature]
   []
   [temperature_adjoint]
-    nl_sys = adjoint
+    solver_sys = adjoint
   []
 []
 
@@ -73,6 +73,21 @@
   []
 []
 
+[Preconditioning]
+  [nl0]
+    type = SMP
+    nl_sys = 'nl0'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
+  []
+  [adjoint]
+    type = SMP
+    nl_sys = 'adjoint'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
+  []
+[]
+
 [Executioner]
   type = SteadyAndAdjoint
   forward_system = nl0
@@ -80,8 +95,6 @@
   line_search = none
   nl_rel_tol = 1e-12
   l_tol = 1e-12
-  petsc_options_iname = '-pc_type'
-  petsc_options_value = 'lu'
 []
 
 [DiracKernels]
@@ -117,6 +130,7 @@
   [measure_data]
     type = OptimizationData
     variable = temperature
+    objective_name = objective_value
   []
   [params]
     type = ConstantReporter
@@ -149,7 +163,7 @@
 [Postprocessors]
   [constraint]
     type = ParsedPostprocessor
-    function = '150 - sum' # 150 is the constraint we want to satisfy
+    expression = '150 - sum' # 150 is the constraint we want to satisfy
     pp_names = sum
   []
   [dc_da]

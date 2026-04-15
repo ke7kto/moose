@@ -29,7 +29,6 @@
 # At t = 1, p = 200.
 
 [Problem]
-  coord_type = RZ
   type = ReferenceResidualProblem
   reference_vector = ref
   extra_tag_vectors = ref
@@ -42,6 +41,7 @@
 
 [Mesh]
   file = rz.e
+  coord_type = RZ
 []
 
 [Functions]
@@ -149,6 +149,7 @@
 
   dt = 0.5
   end_time = 1.0
+  use_pre_SMO_residual = true
 []
 
 [Postprocessors]

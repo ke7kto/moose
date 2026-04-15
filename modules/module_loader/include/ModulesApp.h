@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -68,11 +68,11 @@
 #ifdef REACTOR_ENABLED
 #include "ReactorApp.h"
 #endif
-#ifdef RICHARDS_ENABLED
-#include "RichardsApp.h"
-#endif
 #ifdef SCALAR_TRANSPORT_ENABLED
 #include "ScalarTransportApp.h"
+#endif
+#ifdef SOLID_MECHANICS_ENABLED
+#include "SolidMechanicsApp.h"
 #endif
 #ifdef SOLID_PROPERTIES_ENABLED
 #include "SolidPropertiesApp.h"
@@ -80,8 +80,8 @@
 #ifdef STOCHASTIC_TOOLS_ENABLED
 #include "StochasticToolsApp.h"
 #endif
-#ifdef TENSOR_MECHANICS_ENABLED
-#include "TensorMechanicsApp.h"
+#ifdef SUBCHANNEL_ENABLED
+#include "SubChannelApp.h"
 #endif
 #ifdef THERMAL_HYDRAULICS_ENABLED
 #include "ThermalHydraulicsApp.h"
@@ -105,9 +105,6 @@ public:
   static void registerAll(Factory & f, ActionFactory & af, Syntax & s);
   template <typename T>
   static void registerAllObjects(Factory & f, ActionFactory & af, Syntax & s);
-  static void registerObjects(Factory & factory);
-  static void associateSyntax(Syntax & syntax, ActionFactory & action_factory);
-  static void registerExecFlags(Factory & factory);
 };
 
 template <typename T>
@@ -132,6 +129,10 @@ ModulesApp::registerAllObjects(Factory & f, ActionFactory & af, Syntax & s)
 
 #ifdef FSI_ENABLED
   FsiApp::registerAll(f, af, s);
+#endif
+
+#ifdef FUNCTIONAL_EXPANSION_TOOLS_ENABLED
+  FunctionalExpansionToolsApp::registerAll(f, af, s);
 #endif
 
 #ifdef GEOCHEMISTRY_ENABLED
@@ -182,12 +183,12 @@ ModulesApp::registerAllObjects(Factory & f, ActionFactory & af, Syntax & s)
   ReactorApp::registerAll(f, af, s);
 #endif
 
-#ifdef RICHARDS_ENABLED
-  RichardsApp::registerAll(f, af, s);
-#endif
-
 #ifdef SCALAR_TRANSPORT_ENABLED
   ScalarTransportApp::registerAll(f, af, s);
+#endif
+
+#ifdef SOLID_MECHANICS_ENABLED
+  SolidMechanicsApp::registerAll(f, af, s);
 #endif
 
 #ifdef SOLID_PROPERTIES_ENABLED
@@ -198,8 +199,8 @@ ModulesApp::registerAllObjects(Factory & f, ActionFactory & af, Syntax & s)
   StochasticToolsApp::registerAll(f, af, s);
 #endif
 
-#ifdef TENSOR_MECHANICS_ENABLED
-  TensorMechanicsApp::registerAll(f, af, s);
+#ifdef SUBCHANNEL_ENABLED
+  SubChannelApp::registerAll(f, af, s);
 #endif
 
 #ifdef THERMAL_HYDRAULICS_ENABLED

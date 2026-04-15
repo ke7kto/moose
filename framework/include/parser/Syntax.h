@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -116,6 +116,11 @@ public:
                             int line = -1);
 
   /**
+   * De-registers all actions associated with a given syntax
+   */
+  void removeAllActionsForSyntax(const std::string & syntax);
+
+  /**
    *  Registration function that replaces existing Moose Actions with a completely new action
    *  Note: This function will remove all actions associated with this piece of syntax _NOT_ just
    *        a single match of some kind
@@ -163,6 +168,13 @@ public:
    */
   std::vector<std::string> getSyntaxByAction(const std::string & action,
                                              const std::string & task = "");
+
+  /**
+   * Retrieve the non-deprecated syntax associated with the passed in action type string. If a task
+   * string is also passed in, only syntax associated with that action+task combo will be returned.
+   */
+  std::vector<std::string> getNonDeprecatedSyntaxByAction(const std::string & action,
+                                                          const std::string & task = "");
 
   /**
    * Method for determining whether a piece of syntax is associated with an Action

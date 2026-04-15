@@ -18,7 +18,7 @@
   [forwardT]
   []
   [adjointT]
-    nl_sys = adjoint
+    solver_sys = adjoint
   []
 []
 
@@ -42,7 +42,7 @@
     x_coord_name = measurement_locations/measurement_xcoord
     y_coord_name = measurement_locations/measurement_ycoord
     z_coord_name = measurement_locations/measurement_zcoord
-    value_name   = measurement_locations/misfit_values
+    value_name = measurement_locations/misfit_values
   []
 []
 
@@ -94,6 +94,7 @@
 [Reporters]
   [measurement_locations]
     type = OptimizationData
+    objective_name = objective_value
     variable = forwardT
   []
   [params]
@@ -112,6 +113,21 @@
   []
 []
 
+[Preconditioning]
+  [nl0]
+    type = SMP
+    nl_sys = 'nl0'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
+  []
+  [adjoint]
+    type = SMP
+    nl_sys = 'adjoint'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
+  []
+[]
+
 [Executioner]
   type = SteadyAndAdjoint
   forward_system = nl0
@@ -120,8 +136,6 @@
   nl_abs_tol = 1e-12
   nl_rel_tol = 1e-12
   l_tol = 1e-12
-  petsc_options_iname = '-pc_type'
-  petsc_options_value = 'lu'
 []
 
 [Outputs]

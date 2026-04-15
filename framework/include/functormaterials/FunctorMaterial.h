@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -57,7 +57,6 @@ FunctorMaterial::addFunctorProperty(const std::string & name,
                                     PolymorphicLambda my_lammy,
                                     const std::set<ExecFlagType> & clearance_schedule)
 {
-  _supplied_functor_props.insert(name);
   return addFunctorPropertyByBlocks<T>(name, my_lammy, blockIDs(), clearance_schedule);
 }
 
@@ -78,7 +77,13 @@ FunctorMaterial::addFunctorPropertyByBlocks(const std::string & name,
       prop_name = _pars.get<MooseFunctorName>(name);
   }
 
-  _supplied_functor_props.insert(name);
+  _supplied_functor_props.insert(prop_name +
+                                 (_declare_suffix.empty() ? "" : ("_" + _declare_suffix)));
   return _subproblem.addPiecewiseByBlockLambdaFunctor<T>(
-      prop_name, my_lammy, clearance_schedule, _mesh, sub_ids, _tid);
+      prop_name + (_declare_suffix.empty() ? "" : ("_" + _declare_suffix)),
+      my_lammy,
+      clearance_schedule,
+      _mesh,
+      sub_ids,
+      _tid);
 }

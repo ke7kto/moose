@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -59,6 +59,9 @@ public:
       mooseAssert(ret == _z_comp.hasBlocks(sub_id), "x and z block restriction don't agree");
     return ret;
   }
+
+  bool supportsFaceArg() const override;
+  bool supportsElemSideQpArg() const override;
 
 private:
   ValueType evaluate(const ElemArg & elem_arg, const StateArg & state) const override;
@@ -137,6 +140,32 @@ VectorCompositeFunctor<T>::VectorCompositeFunctor(const MooseFunctorName & name,
     _has_y(false),
     _has_z(false)
 {
+}
+
+template <typename T>
+bool
+VectorCompositeFunctor<T>::supportsFaceArg() const
+{
+  if (!_x_comp.supportsFaceArg())
+    return false;
+  if (_has_y && !_y_comp.supportsFaceArg())
+    return false;
+  if (_has_z && !_z_comp.supportsFaceArg())
+    return false;
+  return true;
+}
+
+template <typename T>
+bool
+VectorCompositeFunctor<T>::supportsElemSideQpArg() const
+{
+  if (!_x_comp.supportsElemSideQpArg())
+    return false;
+  if (_has_y && !_y_comp.supportsElemSideQpArg())
+    return false;
+  if (_has_z && !_z_comp.supportsElemSideQpArg())
+    return false;
+  return true;
 }
 
 template <typename T>

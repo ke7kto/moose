@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -221,6 +221,9 @@ protected:
 
   /// Time format
   TimeFormatEnum _time_format;
+
+  /// Whether to write all processors to files
+  const bool _write_all_procs_to_files;
 
 private:
   /**

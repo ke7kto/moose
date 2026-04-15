@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #pragma once
+
 #include "PolygonMeshGeneratorBase.h"
 #include "ReportingIDGeneratorUtils.h"
 #include "MooseEnum.h"
@@ -60,10 +61,12 @@ protected:
   const std::vector<subdomain_id_type> _duct_block_ids;
   /// Subdomain Names of the duct layers
   const std::vector<SubdomainName> _duct_block_names;
+  /// Name of the boundary used for stitching
+  const BoundaryName _stitching_boundary_name;
   /// Boundary ID of mesh's external boundary
   const boundary_id_type _external_boundary_id;
   /// Boundary name of mesh's external boundary
-  const std::string _external_boundary_name;
+  const BoundaryName _external_boundary_name;
   /// Whether inward interface boundaries are created
   const bool _create_inward_interface_boundaries;
   /// Whether outward interface boundaries are created
@@ -78,14 +81,26 @@ protected:
   std::vector<SubdomainName> _peripheral_block_names;
   /// Whether reporting ID is added to mesh
   const bool _use_reporting_id;
+  /// names of reporting ID
+  std::vector<std::string> _reporting_id_names;
   /// reporting ID assignment type
-  const ReportingIDGeneratorUtils::AssignType _assign_type;
+  std::vector<ReportingIDGeneratorUtils::AssignType> _assign_types;
   /// flag to indicate if exclude_id is defined
   const bool _use_exclude_id;
   /// vector indicating which ids in the pattern to exclude (true at pattern positions to exclude)
   std::vector<bool> _exclude_ids;
-  /// hold reporting ID for each input pattern cell
-  std::vector<std::vector<dof_id_type>> _id_pattern;
+  /// hold ID patterns for each manual reporting ID. Individual ID pattern contains ID values for each pattern cell.
+  std::map<std::string, std::vector<std::vector<dof_id_type>>> _id_patterns;
+  /// whether the interface boundary ids from input meshes are shifted, using a user-defined pattern of values for each pattern cell
+  const bool _use_interface_boundary_id_shift;
+  /// hold user-defined shift values for each pattern cell
+  std::vector<std::vector<boundary_id_type>> _interface_boundary_id_shift_pattern;
+  /// Type of quadrilateral elements to be generated in the periphery region
+  QUAD_ELEM_TYPE _boundary_quad_elem_type;
+  /// Whether to allow additional assembly types to be passed to "inputs" parameter without being used in lattice
+  const bool _allow_unused_inputs;
+  /// Whether the mesh stitching should be verbose
+  const bool _verbose_stitching;
 
   /**
    * Adds background and duct region mesh to each part outer part of stitched square meshes. Note
@@ -131,6 +146,6 @@ protected:
    * @param  mesh input mesh to add the reporting IDs onto
    * @param from_meshes meshes to take reporting IDs from
    */
-  void addReportingIDs(std::unique_ptr<MeshBase> & mesh,
+  void addReportingIDs(MeshBase & mesh,
                        const std::vector<std::unique_ptr<ReplicatedMesh>> & from_meshes) const;
 };

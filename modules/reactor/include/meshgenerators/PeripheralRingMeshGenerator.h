@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #pragma once
+
 #include "PolygonMeshGeneratorBase.h"
 #include "MooseEnum.h"
 #include "MooseMeshUtils.h"
@@ -33,7 +34,7 @@ protected:
   /// Number of layers of elements of the peripheral region in radial direction
   const unsigned int _peripheral_layer_num;
   /// Bias value used to induce biasing to radial meshing in peripheral ring region
-  const Real _peripheral_radial_bias;
+  Real _peripheral_radial_bias;
   /// Width, fraction, radiation sectors and growth factor of the inner boundary layer of the peripheral region
   singleBdryLayerParams _peripheral_inner_boundary_layer_params;
   /// Width, fraction, radiation sectors and growth factor of the outer boundary layer of the peripheral region

@@ -45,9 +45,9 @@
   displacements = 'disp_x disp_y'
 []
 
-[Modules]
-  [TensorMechanics]
-    [Master]
+[Physics]
+  [SolidMechanics]
+    [QuasiStatic]
       generate_output = 'stress_yy stress_xy strain_xy'
       [all]
         strain = FINITE
@@ -92,7 +92,7 @@
 
 [Modules/TensorMechanics/CohesiveZoneMaster]
   [czm_ik]
-    boundary = 'interface'
+    boundary = 'block1_block2'
   []
 []
 
@@ -107,7 +107,7 @@
   []
   [czm]
     type = BiLinearMixedModeTraction
-    boundary = 'interface'
+    boundary = 'block1_block2'
     penalty_stiffness = 1e6
     GI_c = 1e3
     GII_c = 1e2

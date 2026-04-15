@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,6 +13,8 @@
 #include "Assembly.h"
 #include "MooseVariableFE.h"
 #include "SystemBase.h"
+#include "AuxiliarySystem.h"
+#include "FEProblemBase.h"
 
 #include "libmesh/quadrature.h"
 
@@ -35,7 +37,7 @@ InterfaceKernelTempl<T>::InterfaceKernelTempl(const InputParameters & parameters
   : InterfaceKernelBase(parameters),
     NeighborMooseVariableInterface<T>(this,
                                       false,
-                                      Moose::VarKindType::VAR_NONLINEAR,
+                                      Moose::VarKindType::VAR_SOLVER,
                                       std::is_same<T, Real>::value
                                           ? Moose::VarFieldType::VAR_FIELD_STANDARD
                                           : Moose::VarFieldType::VAR_FIELD_VECTOR),
@@ -53,9 +55,11 @@ InterfaceKernelTempl<T>::InterfaceKernelTempl(const InputParameters & parameters
     _phi_neighbor(_assembly.phiFaceNeighbor(_neighbor_var)),
     _grad_phi_neighbor(_assembly.gradPhiFaceNeighbor(_neighbor_var)),
     _test_neighbor(_neighbor_var.phiFaceNeighbor()),
-    _grad_test_neighbor(_neighbor_var.gradPhiFaceNeighbor())
-
+    _grad_test_neighbor(_neighbor_var.gradPhiFaceNeighbor()),
+    _same_system(_var.sys().number() == _neighbor_var.sys().number())
 {
+  // Neighbor variable dependency is added by
+  // NeighborCoupleableMooseVariableDependencyIntermediateInterface
   addMooseVariableDependency(this->mooseVariable());
 
   if (!parameters.isParamValid("boundary"))
@@ -177,20 +181,13 @@ InterfaceKernelTempl<T>::computeElemNeighResidual(Moose::DGResidualType type)
 
   accumulateTaggedLocalResidual();
 
+  // To save the diagonal of the Jacobian
   if (_has_primary_residuals_saved_in && is_elem)
-  {
-    Threads::spin_mutex::scoped_lock lock(_resid_vars_mutex);
     for (const auto & var : _primary_save_in_residual_variables)
-    {
       var->sys().solution().add_vector(_local_re, var->dofIndices());
-    }
-  }
   else if (_has_secondary_residuals_saved_in && !is_elem)
-  {
-    Threads::spin_mutex::scoped_lock lock(_resid_vars_mutex);
     for (const auto & var : _secondary_save_in_residual_variables)
       var->sys().solution().add_vector(_local_re, var->dofIndicesNeighbor());
-  }
 }
 
 template <typename T>
@@ -216,7 +213,9 @@ InterfaceKernelTempl<T>::computeResidual()
   computeElemNeighResidual(Moose::Element);
 
   // Compute the residual for the neighbor
-  computeElemNeighResidual(Moose::Neighbor);
+  // This also prevents computing a residual if the neighbor variable is auxiliary
+  if (_same_system)
+    computeElemNeighResidual(Moose::Neighbor);
 }
 
 template <typename T>
@@ -263,6 +262,7 @@ InterfaceKernelTempl<T>::computeElemNeighJacobian(Moose::DGJacobianType type)
 
   accumulateTaggedLocalMatrix();
 
+  // To save the diagonal of the Jacobian
   if (_has_primary_jacobians_saved_in && type == Moose::ElementElement)
   {
     auto rows = _local_ke.m();
@@ -270,7 +270,6 @@ InterfaceKernelTempl<T>::computeElemNeighJacobian(Moose::DGJacobianType type)
     for (decltype(rows) i = 0; i < rows; i++)
       diag(i) = _local_ke(i, i);
 
-    Threads::spin_mutex::scoped_lock lock(_jacoby_vars_mutex);
     for (const auto & var : _primary_save_in_jacobian_variables)
       var->sys().solution().add_vector(diag, var->dofIndices());
   }
@@ -281,7 +280,6 @@ InterfaceKernelTempl<T>::computeElemNeighJacobian(Moose::DGJacobianType type)
     for (decltype(rows) i = 0; i < rows; i++)
       diag(i) = _local_ke(i, i);
 
-    Threads::spin_mutex::scoped_lock lock(_jacoby_vars_mutex);
     for (const auto & var : _secondary_save_in_jacobian_variables)
       var->sys().solution().add_vector(diag, var->dofIndicesNeighbor());
   }
@@ -307,7 +305,8 @@ InterfaceKernelTempl<T>::computeJacobian()
   precalculateJacobian();
 
   computeElemNeighJacobian(Moose::ElementElement);
-  computeElemNeighJacobian(Moose::NeighborNeighbor);
+  if (_same_system)
+    computeElemNeighJacobian(Moose::NeighborNeighbor);
 }
 
 template <typename T>
@@ -369,7 +368,7 @@ InterfaceKernelTempl<T>::computeElementOffDiagJacobian(unsigned int jvar)
     computeElemNeighJacobian(Moose::ElementElement);
     is_jvar_not_interface_var = false;
   }
-  if (jvar == _neighbor_var.number())
+  if (jvar == _neighbor_var.number() && _same_system)
   {
     precalculateJacobian();
     computeElemNeighJacobian(Moose::ElementNeighbor);
@@ -399,6 +398,11 @@ InterfaceKernelTempl<T>::computeNeighborOffDiagJacobian(unsigned int jvar)
   // this return
   if (!_var.activeOnSubdomain(_current_elem->subdomain_id()) ||
       !_neighbor_var.activeOnSubdomain(_neighbor_elem->subdomain_id()))
+    return;
+
+  // We don't care about any contribution to the neighbor Jacobian rows if it's not in the system
+  // we are currently working with (the variable's system)
+  if (!_same_system)
     return;
 
   bool is_jvar_not_interface_var = true;
@@ -446,8 +450,9 @@ InterfaceKernelTempl<T>::computeResidualAndJacobian()
     if (_var.number() == ivar)
       computeElementOffDiagJacobian(jvar);
 
-    if (_neighbor_var.number() == ivar)
-      computeNeighborOffDiagJacobian(jvar);
+    if (_same_system)
+      if (_neighbor_var.number() == ivar)
+        computeNeighborOffDiagJacobian(jvar);
   }
 }
 

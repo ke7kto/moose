@@ -40,18 +40,18 @@ pressure_tag = "pressure_grad"
   [vel_x]
     type = INSFVVelocityVariable
     initial_condition = 0.5
-    nl_sys = u_system
+    solver_sys = u_system
     two_term_boundary_expansion = false
   []
   [vel_y]
     type = INSFVVelocityVariable
     initial_condition = 0.0
-    nl_sys = v_system
+    solver_sys = v_system
     two_term_boundary_expansion = false
   []
   [pressure]
     type = INSFVPressureVariable
-    nl_sys = pressure_system
+    solver_sys = pressure_system
     initial_condition = 0.2
     two_term_boundary_expansion = false
   []
@@ -119,13 +119,13 @@ pressure_tag = "pressure_grad"
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = vel_x
-    function = '1.1'
+    functor = '1.1'
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = vel_y
-    function = '0.0'
+    functor = '0.0'
   []
   [walls-u]
     type = INSFVNoSlipWallBC
@@ -171,7 +171,7 @@ pressure_tag = "pressure_grad"
 []
 
 [Executioner]
-  type = SIMPLE
+  type = SIMPLENonlinearAssembly
   momentum_l_abs_tol = 1e-15
   pressure_l_abs_tol = 1e-15
   momentum_l_tol = 0
@@ -183,9 +183,10 @@ pressure_tag = "pressure_grad"
   momentum_equation_relaxation = 0.8
   pressure_variable_relaxation = 0.3
   num_iterations = 100
-  pressure_absolute_tolerance = 1e-14
-  momentum_absolute_tolerance = 1e-14
+  pressure_absolute_tolerance = 1e-13
+  momentum_absolute_tolerance = 1e-13
   print_fields = false
+  continue_on_max_its = true
 []
 
 [Outputs]

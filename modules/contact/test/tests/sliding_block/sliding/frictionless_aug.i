@@ -44,7 +44,7 @@
   [../]
 []
 
-[Modules/TensorMechanics/Master]
+[Physics/SolidMechanics/QuasiStatic]
   [./all]
     add_variables = true
     strain = FINITE
@@ -151,8 +151,8 @@
   solve_type = 'PJFNK'
 
   petsc_options = '-snes_ksp_ew'
-  petsc_options_iname = '-pc_type -pc_factor_mat_solver_type'
-  petsc_options_value = 'lu     superlu_dist'
+  petsc_options_iname = '-pc_type -pc_factor_mat_solver_type -mat_superlu_dist_gpuoffload'
+  petsc_options_value = 'lu       superlu_dist               0'
 
   line_search = 'none'
 
@@ -173,7 +173,7 @@
 []
 
 [Outputs]
-  interval = 10
+  time_step_interval = 10
   [./out]
     type = Exodus
     elemental_as_nodal = true

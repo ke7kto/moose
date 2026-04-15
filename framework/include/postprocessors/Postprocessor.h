@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -28,6 +28,13 @@ public:
   static InputParameters validParams();
 
   Postprocessor(const MooseObject * moose_object);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  Postprocessor(const Postprocessor & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
 
   /**
    * This will get called to actually grab the final value the postprocessor has calculated.
@@ -61,6 +68,9 @@ public:
   const std::string & PPName() const { return _pp_name; }
 
   virtual bool hasBlocks(SubdomainID /* id */) const override { return true; }
+
+  bool supportsFaceArg() const override final { return true; }
+  bool supportsElemSideQpArg() const override final { return true; }
 
 protected:
   /// Post-processor name

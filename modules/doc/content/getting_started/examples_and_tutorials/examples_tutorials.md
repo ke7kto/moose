@@ -14,11 +14,19 @@ be found on [this page](training/index.md).
 Below is a recording of a MOOSE training webinar given in Summer 2020, as well as links to the training presentation and
 other targeted, advanced workshop presentations.
 
-!media https://www.youtube.com/embed/2tJwBsYaLaI
-       id=training-webinar
-       caption=MOOSE training workshop webinar given on June 9--10, 2020.
+!media https://www.youtube.com/embed/QPuK6OdF2hM
+       id=training-webinar-part-one
+       caption=Part 1 of the MOOSE training workshop webinar given on June 6--8, 2023.
 
-- [MOOSE Training Workshop](workshop/index.md alternative=missing_config.md)
+!media https://www.youtube.com/embed/JwbtDXRYPYo
+       id=training-webinar-part-two
+       caption=Part 2 of the MOOSE training workshop webinar given on June 6--8, 2023.
+
+These are examples of trainings:
+
+- [MOOSE User Short Workshop](user_short_workshop/index.md alternative=missing_config.md) (4 hours)
+- [MOOSE User Workshop](user_workshop/index.md alternative=missing_config.md) (2 days)
+- [MOOSE Developer Workshop](workshop/index.md alternative=missing_config.md)
 - [MOOSE MultiApps Workshop](tutorial02_multiapps/presentation/index.md alternative=missing_config.md)
 - [MOOSE Verification Workshop](tutorial03_verification/presentation/index.md alternative=missing_config.md)
 
@@ -85,10 +93,22 @@ for some of the individual physics modules as listed below.
 - [Geochemistry](modules/geochemistry/tests_and_examples/index.md)
 - [Heat Transfer](modules/heat_transfer/tutorials/introduction/index.md)
 - [Level Set](modules/level_set/level_set_examples.md)
+- [Navier Stokes](modules/navier_stokes/intro/index.md)
 - [Porous Flow](modules/porous_flow/porous_flow_examples.md)
+- [Reactor](tutorial04_meshing/index.md)
 - [Reconstructed Discontinuous Galerkin](modules/rdg/index.md#example)
 - [Stochastic Tools](modules/stochastic_tools/examples/index.md)
-- [Tensor Mechanics](modules/tensor_mechanics/examples_index.md)
+- [Solid Mechanics](modules/solid_mechanics/examples_index.md)
+
+## Optional Package Examples and Tutorials
+
+MOOSE integrates with several optional packages that may be installed alongside it to expand MOOSE's base capabilities.
+Pages containing guidance for using these optional packages are listed below.
+
+- [LibTorch](source/libtorch/utils/LibtorchArtificialNeuralNet.md optional=True)
+- [NEML2](syntax/NEML2/index.md optional=True)
+- [MFEM](syntax/MFEM/index.md optional=True)
+- [Kokkos](syntax/Kokkos/index.md optional=True)
 
 ## C++ Programming References id=programming
 

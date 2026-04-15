@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -32,7 +32,7 @@ FVElementalKernel::FVElementalKernel(const InputParameters & parameters)
     MooseVariableInterface(this,
                            false,
                            "variable",
-                           Moose::VarKindType::VAR_NONLINEAR,
+                           Moose::VarKindType::VAR_SOLVER,
                            Moose::VarFieldType::VAR_FIELD_STANDARD),
     CoupleableMooseVariableDependencyIntermediateInterface(this, false, /*is_fv=*/true),
     MaterialPropertyInterface(this, blockIDs(), Moose::EMPTY_BOUNDARY_IDS),
@@ -54,7 +54,7 @@ void
 FVElementalKernel::computeResidual()
 {
   prepareVectorTag(_assembly, _var.number());
-  _local_re(0) += MetaPhysicL::raw_value(computeQpResidual() * _assembly.elemVolume());
+  _local_re(0) += MetaPhysicL::raw_value(computeQpResidual()) * _assembly.elemVolume();
   accumulateTaggedLocalResidual();
 }
 

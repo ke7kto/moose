@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -47,10 +47,4 @@ public:
    * @param assembly   The assembly object
    */
   void buildCoupledElemQpIndexMap(Assembly & assembly);
-
-protected:
-  /**
-   * Builds the mapping using the extracted mesh information
-   */
-  void buildMapping();
 };

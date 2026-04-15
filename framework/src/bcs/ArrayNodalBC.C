@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,6 +13,7 @@
 #include "MooseVariableFE.h"
 #include "SystemBase.h"
 #include "NonlinearSystemBase.h"
+#include "FEProblemBase.h"
 
 InputParameters
 ArrayNodalBC::validParams()
@@ -26,7 +27,7 @@ ArrayNodalBC::ArrayNodalBC(const InputParameters & parameters)
     MooseVariableInterface<RealEigenVector>(this,
                                             true,
                                             "variable",
-                                            Moose::VarKindType::VAR_NONLINEAR,
+                                            Moose::VarKindType::VAR_SOLVER,
                                             Moose::VarFieldType::VAR_FIELD_ARRAY),
     _var(*mooseVariable()),
     _current_node(_var.node()),

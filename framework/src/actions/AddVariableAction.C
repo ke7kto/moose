@@ -1,15 +1,11 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
 //*
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
-
-// Standard includes
-#include <sstream>
-#include <stdexcept>
 
 // MOOSE includes
 #include "AddVariableAction.h"
@@ -19,13 +15,12 @@
 #include "MooseEigenSystem.h"
 #include "MooseObjectAction.h"
 #include "MooseMesh.h"
+#include "CopyNodalVarsAction.h"
 
-#include "libmesh/libmesh.h"
-#include "libmesh/exodusII_io.h"
-#include "libmesh/equation_systems.h"
-#include "libmesh/nonlinear_implicit_system.h"
-#include "libmesh/explicit_system.h"
 #include "libmesh/string_to_enum.h"
+#include "libmesh/fe_interface.h"
+
+using namespace libMesh;
 
 registerMooseAction("MooseApp", AddVariableAction, "add_variable");
 
@@ -40,19 +35,18 @@ AddVariableAction::validParams()
   params.set<std::string>("type") = "MooseVariableBase";
 
   // The below is for backwards compatibility
-  MooseEnum families(AddVariableAction::getNonlinearVariableFamilies());
-  MooseEnum orders(AddVariableAction::getNonlinearVariableOrders());
-  params.addParam<MooseEnum>(
-      "family", families, "Specifies the family of FE shape functions to use for this variable");
+  params.addParam<MooseEnum>("family",
+                             AddVariableAction::getNonlinearVariableFamilies(),
+                             "Specifies the family of FE shape functions to use for this variable");
   params.addParam<MooseEnum>("order",
-                             orders,
-                             "Specifies the order of the FE shape function to use "
-                             "for this variable (additional orders not listed are "
-                             "allowed)");
+                             AddVariableAction::getNonlinearVariableOrders(),
+                             "Specifies the order of the FE shape function to use for this "
+                             "variable (additional orders not listed are allowed)");
   params.addParam<std::vector<Real>>("scaling",
                                      "Specifies a scaling factor to apply to this variable");
   params.addParam<std::vector<Real>>("initial_condition",
                                      "Specifies a constant initial condition for this variable");
+  params.transferParam<std::string>(CopyNodalVarsAction::validParams(), "initial_from_file_var");
   return params;
 }
 
@@ -70,14 +64,23 @@ AddVariableAction::getNonlinearVariableFamilies()
 {
   return MooseEnum("LAGRANGE MONOMIAL HERMITE SCALAR HIERARCHIC CLOUGH XYZ SZABAB BERNSTEIN "
                    "L2_LAGRANGE L2_HIERARCHIC NEDELEC_ONE LAGRANGE_VEC MONOMIAL_VEC "
-                   "RAVIART_THOMAS RATIONAL_BERNSTEIN SIDE_HIERARCHIC",
+                   "RAVIART_THOMAS RATIONAL_BERNSTEIN SIDE_HIERARCHIC L2_HIERARCHIC_VEC "
+                   "L2_LAGRANGE_VEC L2_RAVIART_THOMAS",
                    "LAGRANGE");
 }
 
 MooseEnum
 AddVariableAction::getNonlinearVariableOrders()
 {
-  return MooseEnum("CONSTANT FIRST SECOND THIRD FOURTH", "FIRST", true);
+  return MooseEnum(
+      "CONSTANT FIRST SECOND THIRD FOURTH FIFTH SIXTH SEVENTH EIGHTH NINTH TENTH ELEVENTH TWELFTH "
+      "THIRTEENTH FOURTEENTH FIFTEENTH SIXTEENTH SEVENTEENTH EIGHTTEENTH NINETEENTH TWENTIETH "
+      "TWENTYFIRST TWENTYSECOND TWENTYTHIRD TWENTYFOURTH TWENTYFIFTH TWENTYSIXTH TWENTYSEVENTH "
+      "TWENTYEIGHTH TWENTYNINTH THIRTIETH THIRTYFIRST THIRTYSECOND THIRTYTHIRD THIRTYFOURTH "
+      "THIRTYFIFTH THIRTYSIXTH THIRTYSEVENTH THIRTYEIGHTH THIRTYNINTH FORTIETH FORTYFIRST "
+      "FORTYSECOND FORTYTHIRD",
+      "FIRST",
+      true);
 }
 
 FEType
@@ -103,30 +106,37 @@ AddVariableAction::init()
   // be populated. So we should apply the parameters directly from the action. There should be no
   // case in which both params objects get set by the user and they have different values
 
-  if (_pars.isParamSetByUser("family") && _moose_object_pars.isParamSetByUser("family") &&
-      !_pars.get<MooseEnum>("family").compareCurrent(_moose_object_pars.get<MooseEnum>("family")))
+  if (isParamSetByUser("family") && _moose_object_pars.isParamSetByUser("family") &&
+      !getParam<MooseEnum>("family").compareCurrent(_moose_object_pars.get<MooseEnum>("family")))
     mooseError("Both the MooseVariable* and Add*VariableAction parameters objects have had the "
                "`family` parameter set, and they are different values: ",
                _moose_object_pars.get<MooseEnum>("family"),
                " and ",
-               _pars.get<MooseEnum>("family"),
+               getParam<MooseEnum>("family"),
                " respectively. I don't know how you achieved this, but you need to rectify it.");
 
-  if (_pars.isParamSetByUser("order") && _moose_object_pars.isParamSetByUser("order") &&
-      !_pars.get<MooseEnum>("order").compareCurrent(_moose_object_pars.get<MooseEnum>("order")))
+  if (isParamSetByUser("order") && _moose_object_pars.isParamSetByUser("order") &&
+      !getParam<MooseEnum>("order").compareCurrent(_moose_object_pars.get<MooseEnum>("order")))
     mooseError("Both the MooseVariable* and Add*VariableAction parameters objects have had the "
                "`order` parameter set, and they are different values: ",
                _moose_object_pars.get<MooseEnum>("order"),
                " and ",
-               _pars.get<MooseEnum>("order"),
+               getParam<MooseEnum>("order"),
                " respectively. I don't know how you achieved this, but you need to rectify it.");
 
-  if (_pars.isParamSetByUser("scaling") && _moose_object_pars.isParamSetByUser("scaling") &&
-      _pars.get<std::vector<Real>>("scaling") !=
+  if (isParamSetByUser("scaling") && _moose_object_pars.isParamSetByUser("scaling") &&
+      getParam<std::vector<Real>>("scaling") !=
           _moose_object_pars.get<std::vector<Real>>("scaling"))
     mooseError("Both the MooseVariable* and Add*VariableAction parameters objects have had the "
                "`scaling` parameter set, and they are different values. I don't know how you "
                "achieved this, but you need to rectify it.");
+
+  if (isParamSetByUser("initial_condition") && isParamSetByUser("initial_from_file_var"))
+    paramError("initial_condition",
+               "Two initial conditions have been provided for the variable ",
+               name(),
+               " using the 'initial_condition' and 'initial_from_file_var' parameters. Please "
+               "remove one of them.");
 
   _moose_object_pars.applySpecificParameters(_pars, {"order", "family", "scaling"});
 
@@ -150,21 +160,22 @@ AddVariableAction::act()
   init();
 
   // Get necessary data for creating a variable
-  std::string var_name = name();
+  const auto var_name = varName();
   addVariable(var_name);
 
   // Set the initial condition
-  if (_pars.isParamValid("initial_condition"))
-    createInitialConditionAction();
+  if (isParamValid("initial_condition"))
+  {
+    const auto & value = getParam<std::vector<Real>>("initial_condition");
+    createInitialConditionAction(value);
+  }
 }
 
 void
-AddVariableAction::createInitialConditionAction()
+AddVariableAction::createInitialConditionAction(const std::vector<Real> & value)
 {
   // Variable name
-  std::string var_name = name();
-
-  auto value = _pars.get<std::vector<Real>>("initial_condition");
+  const auto var_name = varName();
 
   // Create the object name
   std::string long_name("");
@@ -175,8 +186,11 @@ AddVariableAction::createInitialConditionAction()
   InputParameters action_params = _action_factory.getValidParams("AddOutputAction");
   action_params.set<ActionWarehouse *>("awh") = &_awh;
 
-  bool is_vector = (_fe_type.family == LAGRANGE_VEC || _fe_type.family == NEDELEC_ONE ||
-                    _fe_type.family == MONOMIAL_VEC || _fe_type.family == RAVIART_THOMAS);
+  // Associate all action and initial condition errors with "initial_condition"
+  associateWithParameter("initial_condition", action_params);
+
+  const auto fe_field_type = FEInterface::field_type(_fe_type);
+  const bool is_vector = fe_field_type == TYPE_VECTOR;
 
   if (_scalar_var)
     action_params.set<std::string>("type") = "ScalarConstantIC";
@@ -246,10 +260,11 @@ AddVariableAction::variableType(const FEType & fe_type, const bool is_fv, const 
   if (is_fv)
     return "MooseVariableFVReal";
 
+  const auto fe_field_type = FEInterface::field_type(fe_type);
+
   if (is_array)
   {
-    if (fe_type.family == LAGRANGE_VEC || fe_type.family == NEDELEC_ONE ||
-        fe_type.family == MONOMIAL_VEC || fe_type.family == RAVIART_THOMAS)
+    if (fe_field_type == TYPE_VECTOR)
       ::mooseError("Vector finite element families do not currently have ArrayVariable support");
     else
       return "ArrayMooseVariable";
@@ -258,8 +273,7 @@ AddVariableAction::variableType(const FEType & fe_type, const bool is_fv, const 
     return "MooseVariableConstMonomial";
   else if (fe_type.family == SCALAR)
     return "MooseVariableScalar";
-  else if (fe_type.family == LAGRANGE_VEC || fe_type.family == NEDELEC_ONE ||
-           fe_type.family == MONOMIAL_VEC || fe_type.family == RAVIART_THOMAS)
+  else if (fe_field_type == TYPE_VECTOR)
     return "VectorMooseVariable";
   else
     return "MooseVariable";

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -68,8 +68,8 @@ struct FunctorReturnType<T, FunctorEvaluationKind::Gradient>
 {
   typedef typename MetaPhysicL::ReplaceAlgebraicType<
       T,
-      typename TensorTools::IncrementRank<typename MetaPhysicL::ValueType<T>::type>::type>::type
-      type;
+      typename libMesh::TensorTools::IncrementRank<
+          typename MetaPhysicL::ValueType<T>::type>::type>::type type;
 };
 
 /**
@@ -152,9 +152,17 @@ public:
   virtual ~FunctorBase() = default;
   FunctorBase(const MooseFunctorName & name,
               const std::set<ExecFlagType> & clearance_schedule = {EXEC_ALWAYS})
-    : _clearance_schedule(clearance_schedule), _functor_name(name)
+    : _always_evaluate(true), _functor_name(name)
   {
+    setCacheClearanceSchedule(clearance_schedule);
   }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  FunctorBase(const FunctorBase<T> &, const Moose::Kokkos::FunctorCopy &) {}
+#endif
 
   /**
    * Perform a generic evaluation based on the supplied template argument \p FET and supplied
@@ -269,7 +277,17 @@ public:
    * @return A face with possibly changed sidedness depending on whether we aren't defined on both
    * sides of the face
    */
-  Moose::FaceArg checkFace(const Moose::FaceArg & face) const;
+  void checkFace(const Moose::FaceArg & face) const;
+
+  /**
+   * Whether this functor supports evaluation with FaceArg
+   */
+  virtual bool supportsFaceArg() const = 0;
+
+  /**
+   * Whether this functor supports evaluation with ElemSideQpArg
+   */
+  virtual bool supportsElemSideQpArg() const = 0;
 
 protected:
   /** @name Functor evaluation routines
@@ -486,7 +504,7 @@ private:
    */
   template <typename SpaceArg, typename StateArg>
   ValueType queryQpCache(unsigned int qp,
-                         const QBase & qrule,
+                         const libMesh::QBase & qrule,
                          std::vector<std::pair<bool, T>> & qp_cache_data,
                          const SpaceArg & space,
                          const StateArg & state) const;
@@ -501,11 +519,14 @@ private:
   /// How often to clear the material property cache
   std::set<ExecFlagType> _clearance_schedule;
 
+  /// Boolean to check if we always need evaluation
+  bool _always_evaluate;
+
   // Data for traditional element-quadrature point property evaluations which are useful for
   // caching implementation
 
   /// Current key for qp map cache
-  mutable dof_id_type _current_qp_map_key = DofObject::invalid_id;
+  mutable dof_id_type _current_qp_map_key = libMesh::DofObject::invalid_id;
 
   /// Current value for qp map cache
   mutable std::vector<std::pair<bool, ValueType>> * _current_qp_map_value = nullptr;
@@ -521,7 +542,7 @@ private:
   // caching implementation
 
   /// Current key for side-qp map cache
-  mutable dof_id_type _current_side_qp_map_key = DofObject::invalid_id;
+  mutable dof_id_type _current_side_qp_map_key = libMesh::DofObject::invalid_id;
 
   /// Current value for side-qp map cache
   mutable std::vector<std::vector<std::pair<bool, ValueType>>> * _current_side_qp_map_value =
@@ -581,7 +602,7 @@ template <typename T>
 typename FunctorBase<T>::ValueType
 FunctorBase<T>::operator()(const ElemArg & elem, const StateArg & state) const
 {
-  if (_clearance_schedule.count(EXEC_ALWAYS))
+  if (_always_evaluate)
     return evaluate(elem, state);
 
   mooseAssert(state.state == 0,
@@ -594,22 +615,22 @@ template <typename T>
 typename FunctorBase<T>::ValueType
 FunctorBase<T>::operator()(const FaceArg & face_in, const StateArg & state) const
 {
-  const auto face = checkFace(face_in);
+  checkFace(face_in);
 
-  if (_clearance_schedule.count(EXEC_ALWAYS))
-    return evaluate(face, state);
+  if (_always_evaluate)
+    return evaluate(face_in, state);
 
   mooseAssert(state.state == 0,
               "Cached evaluations are only currently supported for the current state.");
 
-  return queryFVArgCache(_face_arg_to_value, face);
+  return queryFVArgCache(_face_arg_to_value, face_in);
 }
 
 template <typename T>
 template <typename SpaceArg, typename StateArg>
 typename FunctorBase<T>::ValueType
 FunctorBase<T>::queryQpCache(const unsigned int qp,
-                             const QBase & qrule,
+                             const libMesh::QBase & qrule,
                              std::vector<std::pair<bool, ValueType>> & qp_cache_data,
                              const SpaceArg & space,
                              const StateArg & state) const
@@ -640,7 +661,7 @@ template <typename T>
 typename FunctorBase<T>::ValueType
 FunctorBase<T>::operator()(const ElemQpArg & elem_qp, const StateArg & state) const
 {
-  if (_clearance_schedule.count(EXEC_ALWAYS))
+  if (_always_evaluate)
     return evaluate(elem_qp, state);
 
   const auto elem_id = elem_qp.elem->id();
@@ -661,7 +682,7 @@ template <typename T>
 typename FunctorBase<T>::ValueType
 FunctorBase<T>::operator()(const ElemSideQpArg & elem_side_qp, const StateArg & state) const
 {
-  if (_clearance_schedule.count(EXEC_ALWAYS))
+  if (_always_evaluate)
     return evaluate(elem_side_qp, state);
 
   const Elem * const elem = elem_side_qp.elem;
@@ -698,6 +719,9 @@ template <typename T>
 void
 FunctorBase<T>::setCacheClearanceSchedule(const std::set<ExecFlagType> & clearance_schedule)
 {
+  if (clearance_schedule.count(EXEC_ALWAYS))
+    _always_evaluate = true;
+
   _clearance_schedule = clearance_schedule;
 }
 
@@ -705,31 +729,31 @@ template <typename T>
 typename FunctorBase<T>::ValueType
 FunctorBase<T>::operator()(const NodeArg & node, const StateArg & state) const
 {
+  mooseAssert(node.subdomain_ids, "Subdomain IDs must be supplied to the node argument");
   return evaluate(node, state);
 }
 
 template <typename T>
-FaceArg
-FunctorBase<T>::checkFace(const Moose::FaceArg & face) const
+void
+FunctorBase<T>::checkFace(const Moose::FaceArg &
+#if DEBUG
+                              face
+#endif
+) const
 {
+#if DEBUG
   const Elem * const elem = face.face_side;
   const FaceInfo * const fi = face.fi;
   mooseAssert(fi, "face info should be non-null");
-  auto ret_face = face;
   bool check_elem_def = false;
   bool check_neighbor_def = false;
+  // We check if the functor is defined on both sides of the face
   if (!elem)
   {
     if (!hasFaceSide(*fi, true))
-    {
-      ret_face.face_side = fi->neighborPtr();
       check_neighbor_def = true;
-    }
     else if (!hasFaceSide(*fi, false))
-    {
-      ret_face.face_side = fi->elemPtr();
       check_elem_def = true;
-    }
   }
   else if (elem == fi->elemPtr())
     check_elem_def = true;
@@ -763,8 +787,7 @@ FunctorBase<T>::checkFace(const Moose::FaceArg & face) const
         "producer (e.g. residual object, postprocessor, etc.) has requested evaluation there.\n",
         additional_message);
   }
-
-  return ret_face;
+#endif
 }
 
 template <typename T>
@@ -783,9 +806,9 @@ FunctorBase<T>::clearCacheData()
         pr.first = false;
   }
 
-  _current_qp_map_key = DofObject::invalid_id;
+  _current_qp_map_key = libMesh::DofObject::invalid_id;
   _current_qp_map_value = nullptr;
-  _current_side_qp_map_key = DofObject::invalid_id;
+  _current_side_qp_map_key = libMesh::DofObject::invalid_id;
   _current_side_qp_map_value = nullptr;
 
   _elem_arg_to_value.clear();
@@ -836,7 +859,8 @@ template <typename T>
 typename FunctorBase<T>::GradientType
 FunctorBase<T>::gradient(const FaceArg & face, const StateArg & state) const
 {
-  return evaluateGradient(checkFace(face), state);
+  checkFace(face);
+  return evaluateGradient(face, state);
 }
 
 template <typename T>
@@ -878,7 +902,8 @@ template <typename T>
 typename FunctorBase<T>::DotType
 FunctorBase<T>::dot(const FaceArg & face, const StateArg & state) const
 {
-  return evaluateDot(checkFace(face), state);
+  checkFace(face);
+  return evaluateDot(face, state);
 }
 
 template <typename T>
@@ -920,7 +945,8 @@ template <typename T>
 typename FunctorBase<T>::GradientType
 FunctorBase<T>::gradDot(const FaceArg & face, const StateArg & state) const
 {
-  return evaluateGradDot(checkFace(face), state);
+  checkFace(face);
+  return evaluateGradDot(face, state);
 }
 
 template <typename T>
@@ -1118,6 +1144,9 @@ public:
     return _wrapped->hasFaceSide(fi, fi_elem_side);
   }
 
+  bool supportsFaceArg() const override final { return true; }
+  bool supportsElemSideQpArg() const override final { return true; }
+
 protected:
   ///@{
   /**
@@ -1262,6 +1291,9 @@ public:
 
   bool hasBlocks(SubdomainID /* id */) const override { return true; }
 
+  bool supportsFaceArg() const override final { return true; }
+  bool supportsElemSideQpArg() const override final { return true; }
+
 private:
   ValueType evaluate(const ElemArg &, const StateArg &) const override { return _value; }
   ValueType evaluate(const FaceArg &, const StateArg &) const override { return _value; }
@@ -1315,6 +1347,9 @@ public:
 
   // For backwards compatiblity of unit testing
   bool hasFaceSide(const FaceInfo & fi, bool) const override;
+
+  bool supportsFaceArg() const override final { return false; }
+  bool supportsElemSideQpArg() const override final { return false; }
 
 private:
   ValueType evaluate(const ElemArg &, const StateArg &) const override

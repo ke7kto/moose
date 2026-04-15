@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,8 +11,10 @@
 
 #include "SolveObject.h"
 
+class NonlinearSystemBase;
+
 /**
- * A solve object for use with a nonlinear system solver
+ * A solve object for use with a single nonlinear system to solve
  */
 class NonlinearSolveObject : public SolveObject
 {
@@ -20,4 +22,8 @@ public:
   NonlinearSolveObject(Executioner & ex);
 
   static InputParameters validParams();
+
+protected:
+  /// Reference to nonlinear system base for faster access
+  NonlinearSystemBase & _nl;
 };

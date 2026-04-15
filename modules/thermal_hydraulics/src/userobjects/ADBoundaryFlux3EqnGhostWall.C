@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,7 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "ADBoundaryFlux3EqnGhostWall.h"
-#include "THMIndices3Eqn.h"
+#include "THMIndicesVACE.h"
 
 registerMooseObject("ThermalHydraulicsApp", ADBoundaryFlux3EqnGhostWall);
 
@@ -29,13 +29,11 @@ ADBoundaryFlux3EqnGhostWall::ADBoundaryFlux3EqnGhostWall(const InputParameters &
 }
 
 std::vector<ADReal>
-ADBoundaryFlux3EqnGhostWall::getGhostCellSolution(const std::vector<ADReal> & U1) const
+ADBoundaryFlux3EqnGhostWall::getGhostCellSolution(const std::vector<ADReal> & U1,
+                                                  const Point & /*point*/) const
 {
-  std::vector<ADReal> U_ghost(THM3Eqn::N_CONS_VAR);
-  U_ghost[THM3Eqn::CONS_VAR_RHOA] = U1[THM3Eqn::CONS_VAR_RHOA];
-  U_ghost[THM3Eqn::CONS_VAR_RHOUA] = -U1[THM3Eqn::CONS_VAR_RHOUA];
-  U_ghost[THM3Eqn::CONS_VAR_RHOEA] = U1[THM3Eqn::CONS_VAR_RHOEA];
-  U_ghost[THM3Eqn::CONS_VAR_AREA] = U1[THM3Eqn::CONS_VAR_AREA];
+  std::vector<ADReal> U_ghost = U1;
+  U_ghost[THMVACE1D::RHOUA] = -U1[THMVACE1D::RHOUA];
 
   return U_ghost;
 }

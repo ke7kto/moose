@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -35,6 +35,7 @@
 #include "GeometricSearchInterface.h"
 #include "ADFunctorInterface.h"
 #include "SolutionInvalidInterface.h"
+#include "MaterialPropertyInterface.h"
 
 #define usingMaterialBaseMembers                                                                   \
   usingMooseObjectMembers;                                                                         \
@@ -53,6 +54,7 @@ class MaterialBase;
 class MooseMesh;
 class SubProblem;
 class FaceInfo;
+class FEProblemBase;
 
 /**
  * MaterialBases compute MaterialProperties.
@@ -76,18 +78,28 @@ class MaterialBase : public MooseObject,
                      public RandomInterface,
                      public ElementIDInterface,
                      protected GeometricSearchInterface,
-                     protected ADFunctorInterface,
-                     protected SolutionInvalidInterface
+                     protected ADFunctorInterface
 {
 public:
   static InputParameters validParams();
 
   MaterialBase(const InputParameters & parameters);
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  MaterialBase(const MaterialBase & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
+
   /**
    * Initialize stateful properties (if material has some)
+   *
+   * This is _only_ called if this material has properties that are
+   * requested as stateful
    */
-  virtual void initStatefulProperties(unsigned int n_points);
+  virtual void initStatefulProperties(const unsigned int n_points);
+
   virtual bool isInterfaceMaterial() { return false; };
 
   /**
@@ -190,7 +202,7 @@ public:
    * Get the prop ids corresponding to \p declareProperty
    * @return A reference to the set of properties with calls to \p declareProperty
    */
-  const std::set<unsigned int> & getSuppliedPropIDs() { return _supplied_prop_ids; }
+  const std::set<unsigned int> & getSuppliedPropIDs() const { return _supplied_prop_ids; }
 
   void checkStatefulSanity() const;
 
@@ -224,6 +236,11 @@ public:
   bool hasStatefulProperties() const { return _has_stateful_property; }
 
   /**
+   * @return Whether this material has restored properties
+   */
+  bool hasRestoredProperties() const;
+
+  /**
    * Whether this material supports ghosted computations. This is important for finite volume
    * calculations in which variables have defined values on ghost cells/elements and for which these
    * ghost values may need to flow through material calculations to be eventually consumed by FV
@@ -248,6 +265,19 @@ public:
    *       typically when switching subdomains.
    */
   void setActiveProperties(const std::unordered_set<unsigned int> & needed_props);
+  /**
+   * Whether this material has active properties
+   */
+  bool hasActiveProperties() { return _active_prop_ids.size() > 0; }
+
+  /**
+   * @return Whether or not this material should forcefully call
+   * initStatefulProperties() even if it doesn't produce properties
+   * that needs state.
+   *
+   * Please don't set this to true :(
+   */
+  bool forceStatefulInit() const { return _force_stateful_init; }
 
 protected:
   /**
@@ -274,11 +304,15 @@ protected:
    * and an older property named "_diffusivity_old".  You only need to initialize diffusivity.
    * MOOSE will use
    * copy that initial value to the old and older values as necessary.
+   *
+   * This is _only_ called if this material has properties that are
+   * requested as stateful
    */
   virtual void initQpStatefulProperties();
 
   virtual const MaterialData & materialData() const = 0;
   virtual MaterialData & materialData() = 0;
+  virtual Moose::MaterialDataType materialDataType() = 0;
 
   virtual const FEProblemBase & miProblem() const { return _fe_problem; }
   virtual FEProblemBase & miProblem() { return _fe_problem; }
@@ -350,15 +384,51 @@ protected:
 
   std::vector<unsigned int> _displacements;
 
-  // private:
   bool _has_stateful_property;
 
   bool _overrides_init_stateful_props = true;
 
   const FaceInfo * _face_info = nullptr;
 
-private:
+  /// Suffix to append to the name of the material property/ies when declaring it/them
   const MaterialPropertyName _declare_suffix;
+
+private:
+  /**
+   * Helper method for adding a material property name to the material property requested set
+   */
+  void markMatPropRequested(const std::string & name);
+
+  /**
+   * Adds to a map based on block ids of material properties for which a zero
+   * value can be returned. These properties are optional and will not trigger a
+   * missing material property error.
+   *
+   * @param block_id The block id for the MaterialProperty
+   * @param name The name of the property
+   */
+  void storeSubdomainZeroMatProp(SubdomainID block_id, const MaterialPropertyName & name);
+
+  /**
+   * Adds to a map based on boundary ids of material properties for which a zero
+   * value can be returned. These properties are optional and will not trigger a
+   * missing material property error.
+   *
+   * @param boundary_id The block id for the MaterialProperty
+   * @param name The name of the property
+   */
+  void storeBoundaryZeroMatProp(BoundaryID boundary_id, const MaterialPropertyName & name);
+
+  /**
+   * @return The maximum number of quadrature points in use on any element in this problem.
+   */
+  unsigned int getMaxQps() const;
+
+  /// Whether or not to force stateful init; see forceStatefulInit()
+  const bool _force_stateful_init;
+
+  /// To let it access the declaration suffix
+  friend class FunctorMaterial;
 };
 
 template <typename T>
@@ -410,19 +480,19 @@ MaterialBase::getGenericZeroMaterialPropertyByName(const std::string & prop_name
 
   _requested_props.insert(prop_name);
   registerPropName(prop_name, true, 0);
-  _fe_problem.markMatPropRequested(prop_name);
+  markMatPropRequested(prop_name);
 
   // Register this material on these blocks and boundaries as a zero property with relaxed
   // consistency checking
   for (std::set<SubdomainID>::const_iterator it = blockIDs().begin(); it != blockIDs().end(); ++it)
-    _fe_problem.storeSubdomainZeroMatProp(*it, prop_name);
+    storeSubdomainZeroMatProp(*it, prop_name);
   for (std::set<BoundaryID>::const_iterator it = boundaryIDs().begin(); it != boundaryIDs().end();
        ++it)
-    _fe_problem.storeBoundaryZeroMatProp(*it, prop_name);
+    storeBoundaryZeroMatProp(*it, prop_name);
 
   // set values for all qpoints to zero
   // (in multiapp scenarios getMaxQps can return different values in each app; we need the max)
-  unsigned int nqp = _fe_problem.getMaxQps();
+  unsigned int nqp = getMaxQps();
   if (nqp > preload_with_zero.size())
     preload_with_zero.resize(nqp);
   for (unsigned int qp = 0; qp < nqp; ++qp)
@@ -440,7 +510,7 @@ MaterialBase::getGenericZeroMaterialProperty()
 
   // resize to accomodate maximum number of qpoints
   // (in multiapp scenarios getMaxQps can return different values in each app; we need the max)
-  unsigned int nqp = _fe_problem.getMaxQps();
+  unsigned int nqp = getMaxQps();
   if (nqp > zero.size())
     zero.resize(nqp);
 

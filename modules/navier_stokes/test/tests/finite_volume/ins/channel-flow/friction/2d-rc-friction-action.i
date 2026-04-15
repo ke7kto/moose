@@ -26,34 +26,28 @@ rho = 1.1
 
     inlet_boundaries = 'left'
     momentum_inlet_types = 'fixed-velocity'
-    momentum_inlet_function = '1 0'
+    momentum_inlet_functors = '1 0'
     wall_boundaries = 'top bottom'
     momentum_wall_types = 'noslip noslip'
     outlet_boundaries = 'right'
     momentum_outlet_types = 'fixed-pressure'
-    pressure_function = '0'
+    pressure_functors = '0'
 
     friction_types = 'darcy'
-    friction_coeffs = '25'
+    friction_coeffs = 'friction_coefficient'
 
     mass_advection_interpolation = 'average'
     momentum_advection_interpolation = 'average'
+    standard_friction_formulation = false
   []
 []
 
 [FunctorMaterials]
+  inactive = exponential_friction_coefficient
   [const]
     type = ADGenericFunctorMaterial
     prop_names = 'rho mu'
     prop_values = '${rho} ${mu}'
-  []
-  [speed_material]
-    type = PINSFVSpeedFunctorMaterial
-    superficial_vel_x = vel_x
-    superficial_vel_y = vel_y
-    porosity = 1
-    vel_x = vel_x_mat
-    vel_y = vel_y_mat
   []
   [Re_material]
     type = ReynoldsNumberFunctorMaterial
@@ -62,12 +56,22 @@ rho = 1.1
     rho = ${rho}
     mu = ${mu}
   []
-  [exponential_friction_coefficient]
+  [exponential_coeff]
     type = ExponentialFrictionMaterial
-    friction_factor_name = 'friction_coefficient'
+    friction_factor_name = 'exponential_coeff'
     Re = Re
     c1 = 0.25
     c2 = 0.55
+  []
+  [exponential_friction_coefficient]
+    type = ADGenericVectorFunctorMaterial
+    prop_names = 'friction_coefficient'
+    prop_values = 'exponential_coeff exponential_coeff exponential_coeff'
+  []
+  [friction_coefficient]
+    type = ADGenericVectorFunctorMaterial
+    prop_names = 'friction_coefficient'
+    prop_values = '25 25 25'
   []
 []
 

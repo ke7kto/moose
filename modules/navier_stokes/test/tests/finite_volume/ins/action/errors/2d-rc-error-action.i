@@ -1,8 +1,8 @@
-mu=1
-rho=1
-k=1e-3
-cp=1
-alpha=1
+mu = 1
+rho = 1
+k = 1e-3
+cp = 1
+alpha = 1
 
 [Mesh]
   [gen]
@@ -34,17 +34,14 @@ alpha=1
   [vel_x]
     type = 'INSFVVelocityVariable'
     initial_condition = 1
-    block=1
   []
   [vel_y]
     type = 'INSFVVelocityVariable'
     initial_condition = 1
-    block=1
   []
   [pressure]
     type = 'INSFVPressureVariable'
     initial_condition = 0
-    block=1
   []
   [T_fluid]
     type = 'INSFVEnergyVariable'
@@ -73,33 +70,31 @@ alpha=1
     passive_scalar_diffusivity = 1e-3
     passive_scalar_source = 0.1
 
-    initial_velocity = '1 1 0'
-    initial_pressure = 0.0
-    initial_temperature = 0.0
-
     inlet_boundaries = 'left'
     momentum_inlet_types = 'fixed-velocity'
-    momentum_inlet_function = '1 0'
+    momentum_inlet_functors = '1 0'
     energy_inlet_types = 'fixed-temperature'
-    energy_inlet_function = '1'
+    energy_inlet_functors = '1'
     passive_scalar_inlet_types = 'fixed-value'
-    passive_scalar_inlet_function = '1'
+    passive_scalar_inlet_functors = '1'
 
     wall_boundaries = 'top bottom'
     momentum_wall_types = 'noslip noslip'
     energy_wall_types = 'heatflux heatflux'
-    energy_wall_function = '0 0'
+    energy_wall_functors = '0 0'
 
     outlet_boundaries = 'right'
     momentum_outlet_types = 'fixed-pressure'
-    pressure_function = '0'
+    pressure_functors = '0'
 
     ambient_convection_alpha = 'alpha'
     ambient_temperature = '100'
 
     friction_blocks = '1; 2'
-    friction_types = 'darcy; darcy'
-    friction_coeffs = '1.0; 1.0'
+    friction_types = 'Darcy; Darcy'
+    friction_coeffs = 'friction_coefficient; friction_coefficient'
+
+    standard_friction_formulation = false
   []
 []
 
@@ -112,6 +107,11 @@ alpha=1
   [kappa]
     type = ADGenericVectorFunctorMaterial
     prop_names = 'kappa'
+    prop_values = '1 1 1'
+  []
+  [friction_coefficient]
+    type = ADGenericVectorFunctorMaterial
+    prop_names = 'friction_coefficient'
     prop_values = '1 1 1'
   []
 []

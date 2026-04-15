@@ -52,7 +52,6 @@
 
   [hs1]
     type = HeatStructurePlate
-    fp = eos
     position = '0 0 0'
     orientation = '1 0 0'
     n_elems = 10
@@ -79,7 +78,6 @@
 
   [hs2]
     type = HeatStructurePlate
-    fp = eos
     position = '0 0 0'
     orientation = '0 1 0'
     n_elems = 10
@@ -106,7 +104,6 @@
 
   [hs3]
     type = HeatStructurePlate
-    fp = eos
     position = '0 0 0'
     orientation = '0 0 1'
     n_elems = 10
@@ -127,15 +124,15 @@
   []
 
   [in1]
-    type = SolidWall
+    type = SolidWall1Phase
     input = 'pipe1:out'
   []
   [in2]
-    type = SolidWall
+    type = SolidWall1Phase
     input = 'pipe2:out'
   []
   [in3]
-    type = SolidWall
+    type = SolidWall1Phase
     input = 'pipe3:out'
   []
 []

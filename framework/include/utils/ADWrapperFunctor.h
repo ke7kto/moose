@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -44,6 +44,12 @@ public:
   virtual bool hasFaceSide(const FaceInfo & fi, const bool fi_elem_side) const override
   {
     return _non_ad_functor.hasFaceSide(fi, fi_elem_side);
+  }
+
+  bool supportsFaceArg() const override final { return _non_ad_functor.supportsFaceArg(); }
+  bool supportsElemSideQpArg() const override final
+  {
+    return _non_ad_functor.supportsElemSideQpArg();
   }
 
 protected:

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -46,10 +46,7 @@ public:
    * A clone() is needed because GhostingFunctor can not be shared between
    * different meshes. The operations in  GhostingFunctor are mesh dependent.
    */
-  virtual std::unique_ptr<GhostingFunctor> clone() const override
-  {
-    return std::make_unique<AugmentSparsityOnInterface>(*this);
-  }
+  virtual std::unique_ptr<GhostingFunctor> clone() const override;
 
   /**
    * Update the cached _lower_to_upper map whenever our Mesh has been

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -59,11 +59,11 @@ public:
    */
   virtual void p_from_v_e(Real v, Real e, Real & p, Real & dp_dv, Real & dp_de) const override;
 
-  void p_from_v_e(const DualReal & v,
-                  const DualReal & e,
-                  DualReal & p,
-                  DualReal & dp_dv,
-                  DualReal & dp_de) const override;
+  void p_from_v_e(const ADReal & v,
+                  const ADReal & e,
+                  ADReal & p,
+                  ADReal & dp_dv,
+                  ADReal & dp_de) const override;
 
   /**
    * Temperature from specific volume and specific internal energy
@@ -94,11 +94,11 @@ public:
    */
   virtual void T_from_v_e(Real v, Real e, Real & T, Real & dT_dv, Real & dT_de) const override;
 
-  void T_from_v_e(const DualReal & v,
-                  const DualReal & e,
-                  DualReal & T,
-                  DualReal & dT_dv,
-                  DualReal & dT_de) const override;
+  void T_from_v_e(const ADReal & v,
+                  const ADReal & e,
+                  ADReal & T,
+                  ADReal & dT_dv,
+                  ADReal & dT_de) const override;
 
   /**
    * Temperature from pressure and specific enthalpy
@@ -108,6 +108,7 @@ public:
    * @param[out] T      temperature (K)
    */
   virtual Real T_from_p_h(Real p, Real h) const override;
+  virtual ADReal T_from_p_h(const ADReal & /* p */, const ADReal & h) const override;
 
   using SinglePhaseFluidProperties::c_from_v_e;
 
@@ -172,6 +173,17 @@ public:
    */
   virtual Real mu_from_v_e(Real v, Real e) const override;
 
+  /**
+   * Dynamic viscosity and its derivatives from specific volume and specific internal energy
+   *
+   * @param[in] v   specific volume (m$^3$/kg)
+   * @param[in] e   specific internal energy (J/kg)
+   * @param[out] mu dynamic viscosity (Pa.s)
+   * @param[out] dmu_dv derivative of dynamic viscosity w.r.t. specific volume
+   * @param[out] dmu_de derivative of dynamic viscosity w.r.t. specific internal energy
+   */
+  virtual void mu_from_v_e(Real v, Real e, Real & mu, Real & dmu_dv, Real & dmu_de) const override;
+
   using SinglePhaseFluidProperties::k_from_v_e;
 
   /**
@@ -182,6 +194,17 @@ public:
    * @return thermal conductivity (W/m.K)
    */
   virtual Real k_from_v_e(Real v, Real e) const override;
+
+  /**
+   * Thermal conductivity and its derivatives from specific volume and specific internal energy
+   *
+   * @param[in] v   specific volume (m$^3$/kg)
+   * @param[in] e   specific internal energy (J/kg)
+   * @param[out] k thermal conductivity (W/m.K)
+   * @param[out] dk_dv derivative of thermal conductivity w.r.t. specific volume
+   * @param[out] dk_de derivative of thermal conductivity w.r.t. specific internal energy
+   */
+  virtual void k_from_v_e(Real v, Real e, Real & k, Real & dk_dv, Real & dk_de) const override;
 
   using SinglePhaseFluidProperties::beta_from_p_T;
 
@@ -215,11 +238,11 @@ public:
   virtual void
   rho_from_p_T(Real p, Real T, Real & rho, Real & drho_dp, Real & drho_dT) const override;
 
-  virtual void rho_from_p_T(const DualReal & p,
-                            const DualReal & T,
-                            DualReal & rho,
-                            DualReal & drho_dp,
-                            DualReal & drho_dT) const override;
+  virtual void rho_from_p_T(const ADReal & p,
+                            const ADReal & T,
+                            ADReal & rho,
+                            ADReal & drho_dp,
+                            ADReal & drho_dT) const override;
   /**
    * Specific internal energy from pressure and temperature
    *
@@ -239,6 +262,26 @@ public:
    * @param[out] de_dT   derivative of specific internal energy w.r.t. temperature
    */
   virtual void e_from_p_T(Real p, Real T, Real & e, Real & de_dp, Real & de_dT) const override;
+
+  /**
+   * Specific internal energy from specific volume and specific enthalpy
+   *
+   * @param[in] v   specific volume (m^3/kg)
+   * @param[in] h   specific enthalpy (J/kg)
+   * @return specific internal energy (J/kg)
+   */
+  virtual Real e_from_v_h(Real v, Real h) const override;
+
+  /**
+   * Specific internal energy and its derivatives from specific volume and specific enthalpy
+   *
+   * @param[in] v        specific volume (m^3/kg)
+   * @param[in] h        specific enthalpy (J/kg)
+   * @param[out] e       specific internal energy (J/kg)
+   * @param[out] de_dv   derivative of specific internal energy w.r.t. specific volume
+   * @param[out] de_dh   derivative of specific internal energy w.r.t. specific enthalpy
+   */
+  virtual void e_from_v_h(Real v, Real h, Real & e, Real & de_dv, Real & de_dh) const override;
 
   /**
    * Specific enthalpy from pressure and temperature

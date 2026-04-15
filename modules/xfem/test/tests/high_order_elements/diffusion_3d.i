@@ -21,6 +21,7 @@
 [XFEM]
   qrule = volfrac
   output_cut_plane = true
+  min_weight_multiplier = 0.0
 []
 
 [UserObjects]
@@ -88,7 +89,7 @@
 []
 
 [Outputs]
-  interval = 1
+  time_step_interval = 1
   execute_on = timestep_end
   exodus = true
   [./console]

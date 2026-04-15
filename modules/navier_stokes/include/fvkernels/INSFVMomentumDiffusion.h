@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,14 +13,19 @@
 #include "INSFVFluxKernel.h"
 #include "INSFVMomentumResidualObject.h"
 #include "INSFVVelocityVariable.h"
+#include "SolutionInvalidInterface.h"
+#include "FVDiffusionInterpolationInterface.h"
 
-class INSFVMomentumDiffusion : public INSFVFluxKernel
+class INSFVMomentumDiffusion : public INSFVFluxKernel, public FVDiffusionInterpolationInterface
 {
 public:
   static InputParameters validParams();
   INSFVMomentumDiffusion(const InputParameters & params);
   using INSFVFluxKernel::gatherRCData;
   void gatherRCData(const FaceInfo & fi) override final;
+
+  // To get warnings tracked in the SolutionInvalidityOutput
+  usingCombinedWarningSolutionWarnings;
 
 protected:
   /**
@@ -53,9 +58,15 @@ protected:
   /// Boolean parameter to include the complete momentum expansion
   const bool _complete_expansion;
 
+  /// Whether to add the -(2/3) mu div(u) I contribution
+  const bool _include_isotropic_viscous_stress;
+
   /// Boolean parameter to limit interpolation
   const bool _limit_interpolation;
 
   /// dimension
   const unsigned int _dim;
+
+  /// For Newton solves we want to add extra zero-valued terms to avoid sparsity pattern changes
+  const bool _newton_solve;
 };

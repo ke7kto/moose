@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,9 +8,10 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "ADBoundaryFlux3EqnGhostMassFlowRateTemperature.h"
-#include "THMIndices3Eqn.h"
+#include "THMIndicesVACE.h"
 #include "SinglePhaseFluidProperties.h"
 #include "Numerics.h"
+#include "Function.h"
 
 registerMooseObject("ThermalHydraulicsApp", ADBoundaryFlux3EqnGhostMassFlowRateTemperature);
 
@@ -25,6 +26,8 @@ ADBoundaryFlux3EqnGhostMassFlowRateTemperature::validParams()
 
   params.addRequiredParam<Real>("mass_flow_rate", "Specified mass flow rate");
   params.addRequiredParam<Real>("T", "Specified temperature");
+  params.addRequiredParam<std::vector<FunctionName>>(
+      "passives", "Specified passive transport functions [amount/m^3]");
   params.addParam<bool>("reversible", true, "True for reversible, false for pure inlet");
 
   params.addRequiredParam<UserObjectName>("fluid_properties",
@@ -43,18 +46,24 @@ ADBoundaryFlux3EqnGhostMassFlowRateTemperature::ADBoundaryFlux3EqnGhostMassFlowR
     _reversible(getParam<bool>("reversible")),
     _fp(getUserObject<SinglePhaseFluidProperties>("fluid_properties"))
 {
+  // get specified passive transport functions
+  const auto & passives = getParam<std::vector<FunctionName>>("passives");
+  _n_passives = passives.size();
+  _passives_fn.resize(_n_passives);
+  for (const auto i : make_range(_n_passives))
+    _passives_fn[i] = &getFunctionByName(passives[i]);
 }
 
 std::vector<ADReal>
-ADBoundaryFlux3EqnGhostMassFlowRateTemperature::getGhostCellSolution(
-    const std::vector<ADReal> & U) const
+ADBoundaryFlux3EqnGhostMassFlowRateTemperature::getGhostCellSolution(const std::vector<ADReal> & U,
+                                                                     const Point & point) const
 {
-  const ADReal rhoA = U[THM3Eqn::CONS_VAR_RHOA];
-  const ADReal rhouA = U[THM3Eqn::CONS_VAR_RHOUA];
-  const ADReal rhoEA = U[THM3Eqn::CONS_VAR_RHOEA];
-  const ADReal A = U[THM3Eqn::CONS_VAR_AREA];
+  const ADReal rhoA = U[THMVACE1D::RHOA];
+  const ADReal rhouA = U[THMVACE1D::RHOUA];
+  const ADReal rhoEA = U[THMVACE1D::RHOEA];
+  const ADReal A = U[THMVACE1D::AREA];
 
-  std::vector<ADReal> U_ghost(THM3Eqn::N_CONS_VAR);
+  std::vector<ADReal> U_ghost(THMVACE1D::N_FLUX_INPUTS + _n_passives);
   if (!_reversible || THM::isInlet(_rhouA, _normal))
   {
     // Pressure is the only quantity coming from the interior
@@ -69,17 +78,21 @@ ADBoundaryFlux3EqnGhostMassFlowRateTemperature::getGhostCellSolution(
     const ADReal e_b = _fp.e_from_p_rho(p, rho_b);
     const ADReal E_b = e_b + 0.5 * vel_b * vel_b;
 
-    U_ghost[THM3Eqn::CONS_VAR_RHOA] = rho_b * A;
-    U_ghost[THM3Eqn::CONS_VAR_RHOUA] = _rhouA;
-    U_ghost[THM3Eqn::CONS_VAR_RHOEA] = rho_b * E_b * A;
-    U_ghost[THM3Eqn::CONS_VAR_AREA] = A;
+    U_ghost[THMVACE1D::RHOA] = rho_b * A;
+    U_ghost[THMVACE1D::RHOUA] = _rhouA;
+    U_ghost[THMVACE1D::RHOEA] = rho_b * E_b * A;
+    U_ghost[THMVACE1D::AREA] = A;
+    for (const auto i : make_range(_n_passives))
+      U_ghost[THMVACE1D::N_FLUX_INPUTS + i] = _passives_fn[i]->value(_t, point) * A;
   }
   else
   {
-    U_ghost[THM3Eqn::CONS_VAR_RHOA] = rhoA;
-    U_ghost[THM3Eqn::CONS_VAR_RHOUA] = _rhouA;
-    U_ghost[THM3Eqn::CONS_VAR_RHOEA] = rhoEA;
-    U_ghost[THM3Eqn::CONS_VAR_AREA] = A;
+    U_ghost[THMVACE1D::RHOA] = rhoA;
+    U_ghost[THMVACE1D::RHOUA] = _rhouA;
+    U_ghost[THMVACE1D::RHOEA] = rhoEA;
+    U_ghost[THMVACE1D::AREA] = A;
+    for (const auto i : make_range(_n_passives))
+      U_ghost[THMVACE1D::N_FLUX_INPUTS + i] = U[THMVACE1D::N_FLUX_INPUTS + i];
   }
 
   return U_ghost;

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -49,7 +49,8 @@ OptimizationDataTempl<T>::validParams()
       "ordering of these weight reporter names corresponds to the ordering used in variable.");
   params.addParam<std::vector<VariableName>>(
       "variable", "Vector of variable names to sample at measurement points.");
-
+  params.addParam<ReporterValueName>("objective_name",
+                                     "Name of reporter value defining the objective.");
   params.addParamNamesToGroup("measurement_points measurement_values measurement_times",
                               "Input Measurement Data");
   params.addParamNamesToGroup("measurement_file file_xcoord file_ycoord file_zcoord file_time "
@@ -74,7 +75,12 @@ OptimizationDataTempl<T>::OptimizationDataTempl(const InputParameters & paramete
     _simulation_values(this->template declareValueByName<std::vector<Real>>(
         "simulation_values", REPORTER_MODE_REPLICATED)),
     _misfit_values(this->template declareValueByName<std::vector<Real>>("misfit_values",
-                                                                        REPORTER_MODE_REPLICATED))
+                                                                        REPORTER_MODE_REPLICATED)),
+    _objective_val(this->isParamSetByUser("objective_name")
+                       ? this->template declareValueByName<Real>(
+                             this->template getParam<ReporterValueName>("objective_name"),
+                             REPORTER_MODE_REPLICATED)
+                       : this->template declareUnusedValue<Real>())
 {
   // read in data
   if (this->isParamValid("measurement_file") && this->isParamValid("measurement_points"))
@@ -129,6 +135,7 @@ void
 OptimizationDataTempl<T>::execute()
 {
   computeMisfit();
+  _objective_val = computeMisfitValue();
 }
 
 template <typename T>
@@ -160,6 +167,11 @@ OptimizationDataTempl<T>::computeMisfit()
     {
       if (MooseUtils::absoluteFuzzyEqual(this->_t, _measurement_time[i]))
       {
+        // If we are on the first var, make sure reset the simulation values so they aren't
+        // accumulated on repeated timesteps
+        if (var_index == 0)
+          _simulation_values[i] = 0.0;
+
         const Point point(_measurement_xcoord[i], _measurement_ycoord[i], _measurement_zcoord[i]);
         const Real val = sys.point_value(vnum, point, false);
 
@@ -313,6 +325,17 @@ OptimizationDataTempl<T>::errorCheckDataSize()
                " does not match number of entries in value data (",
                std::to_string(nvals),
                ").");
+}
+
+template <typename T>
+Real
+OptimizationDataTempl<T>::computeMisfitValue()
+{
+  Real val = 0.0;
+  for (auto & misfit : _misfit_values)
+    val += misfit * misfit;
+
+  return val * 0.5;
 }
 
 template class OptimizationDataTempl<GeneralReporter>;

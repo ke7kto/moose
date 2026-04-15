@@ -149,6 +149,7 @@
 [Problem]
   extra_tag_vectors = 'tag_diff tag_rhs'
   extra_tag_matrices = 'tag_diff tag_rhs'
+  use_hash_table_matrix_assembly = true
 []
 
 [Postprocessors]
@@ -164,7 +165,7 @@
   []
   [uvnorm]
     type = ParsedPostprocessor
-    function = 'sqrt(unorm*unorm + vnorm*vnorm)'
+    expression = 'sqrt(unorm*unorm + vnorm*vnorm)'
     pp_names = 'unorm vnorm'
     execute_on = linear
   []

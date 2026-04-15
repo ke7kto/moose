@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,6 +9,7 @@
 
 #include "MeshCut2DUserObjectBase.h"
 #include "MeshCut2DNucleationBase.h"
+#include "CrackFrontDefinition.h"
 
 #include "XFEMFuncs.h"
 #include "MooseError.h"
@@ -20,28 +21,25 @@
 InputParameters
 MeshCut2DUserObjectBase::validParams()
 {
-  InputParameters params = GeometricCutUserObject::validParams();
-  params.addRequiredParam<MeshFileName>(
-      "mesh_file",
-      "Mesh file for the XFEM geometric cut; currently only the Exodus type is supported");
+  InputParameters params = MeshCutUserObjectBase::validParams();
   params.addParam<UserObjectName>("nucleate_uo", "The MeshCutNucleation UO for nucleating cracks.");
+  params.addParam<UserObjectName>("crack_front_definition",
+                                  "crackFrontDefinition",
+                                  "The CrackFrontDefinition user object name");
   params.addClassDescription("Creates a UserObject base class for a mesh cutter in 2D problems");
   return params;
 }
 
 MeshCut2DUserObjectBase::MeshCut2DUserObjectBase(const InputParameters & parameters)
-  : GeometricCutUserObject(parameters, true),
+  : MeshCutUserObjectBase(parameters),
     _mesh(_subproblem.mesh()),
     _nucleate_uo(isParamValid("nucleate_uo")
                      ? &getUserObject<MeshCut2DNucleationBase>("nucleate_uo")
                      : nullptr),
-
     _is_mesh_modified(false)
 {
-  // only the Exodus type is currently supported
-  MeshFileName cutterMeshFileName = getParam<MeshFileName>("mesh_file");
-  _cutter_mesh = std::make_unique<ReplicatedMesh>(_communicator);
-  _cutter_mesh->read(cutterMeshFileName);
+  _depend_uo.insert(getParam<UserObjectName>("crack_front_definition"));
+
   // test element type; only line elements are allowed
   for (const auto & cut_elem : _cutter_mesh->element_ptr_range())
   {
@@ -51,8 +49,15 @@ MeshCut2DUserObjectBase::MeshCut2DUserObjectBase(const InputParameters & paramet
       mooseError("The input cut mesh should have 1D elements (in a 2D space) only!");
   }
 
-  // find node fronts of the original cutmesh.  This is used to order everything
+  // find node fronts of the original cutmesh.  This is used to order EVERYTHING.
   findOriginalCrackFrontNodes();
+}
+
+void
+MeshCut2DUserObjectBase::initialSetup()
+{
+  const auto uo_name = getParam<UserObjectName>("crack_front_definition");
+  _crack_front_definition = &_fe_problem.getUserObject<CrackFrontDefinition>(uo_name);
 }
 
 bool
@@ -153,11 +158,10 @@ MeshCut2DUserObjectBase::cutFragmentByGeometry(std::vector<std::vector<Point>> &
   return false;
 }
 
-MeshBase &
-MeshCut2DUserObjectBase::getCutterMesh() const
+unsigned int
+MeshCut2DUserObjectBase::getNumberOfCrackFrontPoints() const
 {
-  mooseAssert(_cutter_mesh, "MeshCut2DUserObjectBase::getCutterMesh _cutter_mesh is nullptr");
-  return *_cutter_mesh;
+  return _original_and_current_front_node_ids.size();
 }
 
 const std::vector<Point>
@@ -167,11 +171,11 @@ MeshCut2DUserObjectBase::getCrackFrontPoints(unsigned int number_crack_front_poi
   // number_crack_front_points is updated via
   // _crack_front_definition->updateNumberOfCrackFrontPoints(_crack_front_points.size())
   if (number_crack_front_points != _original_and_current_front_node_ids.size())
-    mooseError("MeshCut2DFractureUserObject::getCrackFrontPoints:  number_crack_front_points=" +
-               Moose::stringify(number_crack_front_points) +
-               " does not match the number of nodes given in "
-               "_original_and_current_front_node_ids=" +
+    mooseError("Number of nodes in CrackFrontDefinition does not match the number of nodes in the "
+               "cutter_mesh.\nCrackFrontDefinition nodes = " +
+               Moose::stringify(number_crack_front_points) + "\ncutter_mesh nodes = " +
                Moose::stringify(_original_and_current_front_node_ids.size()));
+
   for (unsigned int i = 0; i < number_crack_front_points; ++i)
   {
     dof_id_type id = _original_and_current_front_node_ids[i].second;
@@ -213,22 +217,33 @@ MeshCut2DUserObjectBase::getCrackPlaneNormals(unsigned int number_crack_front_po
 
     bool found_it0 = (it0 != _original_and_current_front_node_ids.end());
     bool found_it1 = (it1 != _original_and_current_front_node_ids.end());
-    if (found_it0 || found_it1)
-    {
 
+    // Newly nucleated crack elements can have one normal if they are on the edge OR
+    // two normals if they are in the bulk.
+    if (found_it0)
+    {
       Point end_pt, connecting_pt;
-      if (found_it0)
-      {
-        end_pt = elem->node_ref(0);
-        connecting_pt = elem->node_ref(1);
-        id = it0->first; // sort by original crack front node ids
-      }
-      else
-      {
-        end_pt = elem->node_ref(1);
-        connecting_pt = elem->node_ref(0);
-        id = it1->first; // sort by original crack front node ids
-      }
+
+      end_pt = elem->node_ref(0);
+      connecting_pt = elem->node_ref(1);
+      id = it0->first; // sort by original crack front node ids
+
+      Point fracture_dir = end_pt - connecting_pt;
+      // The crack normal is orthogonal to the crack extension direction (fracture_dir),
+      // and is defined in this implementation as the cross product of the direction of crack
+      // extension with the tangent direction, which is always (0, 0, 1) in 2D.
+      RealVectorValue normal_dir{fracture_dir(1), -fracture_dir(0), 0};
+      normal_dir /= normal_dir.norm();
+      crack_plane_normals.push_back(std::make_pair(id, normal_dir));
+    }
+
+    if (found_it1)
+    {
+      Point end_pt, connecting_pt;
+
+      end_pt = elem->node_ref(1);
+      connecting_pt = elem->node_ref(0);
+      id = it1->first; // sort by original crack front node ids
 
       Point fracture_dir = end_pt - connecting_pt;
       // The crack normal is orthogonal to the crack extension direction (fracture_dir),
@@ -300,6 +315,16 @@ MeshCut2DUserObjectBase::growFront()
       Point new_node_offset = direction_iter->second;
       Point x = this_point + new_node_offset;
 
+      // TODO:  Should check if cut line segment created between "this_point" and "x" crosses
+      // another line element in the cutter mesh or solid mesh boundary.
+      // Crossing another line element would be a special case that still needs to be handled,
+      // however, it doesnot cause an error, it will just ignore the other line segment and recut
+      // the solid mesh element.
+      // Crossing a solid mesh boundary would be for aesthetics reasons so
+      // that element was trimmed close to the boundary but would have not effect on the simulation.
+      // Crossing a solid mesh boundary should be handled by something like
+      // MeshCut2DRankTwoTensorNucleation::lineLineIntersect2D
+
       // add node to front
       this_node = Node::build(x, _cutter_mesh->n_nodes()).release();
       _cutter_mesh->add_node(this_node);
@@ -313,7 +338,7 @@ MeshCut2DUserObjectBase::growFront()
       for (unsigned int i = 0; i < new_elem->n_nodes(); ++i)
       {
         mooseAssert(_cutter_mesh->node_ptr(elem[i]) != nullptr, "Node is NULL");
-        new_elem->set_node(i) = _cutter_mesh->node_ptr(elem[i]);
+        new_elem->set_node(i, _cutter_mesh->node_ptr(elem[i]));
       }
       _cutter_mesh->add_elem(new_elem);
       // now push to the end of _original_and_current_front_node_ids for tracking and fracture
@@ -357,18 +382,22 @@ MeshCut2DUserObjectBase::addNucleatedCracksToMesh()
       for (unsigned int i = 0; i < new_elem->n_nodes(); ++i)
       {
         mooseAssert(_cutter_mesh->node_ptr(elem[i]) != nullptr, "Node is NULL");
-        new_elem->set_node(i) = _cutter_mesh->node_ptr(elem[i]);
+        new_elem->set_node(i, _cutter_mesh->node_ptr(elem[i]));
       }
       _cutter_mesh->add_elem(new_elem);
       // now add the nucleated nodes to the crack id data struct
+      // edge nucleated cracks will add one node to _original_and_current_front_node_ids
+      // bulk nucleated cracks will add two nodes to _original_and_current_front_node_ids
       Point & point_0 = *node_0;
       const Elem * crack_front_elem_0 = (*pl)(point_0);
       if (crack_front_elem_0 != NULL)
         _original_and_current_front_node_ids.push_back(std::make_pair(node_id_0, node_id_0));
+
       Point & point_1 = *node_1;
       const Elem * crack_front_elem_1 = (*pl)(point_1);
       if (crack_front_elem_1 != NULL)
         _original_and_current_front_node_ids.push_back(std::make_pair(node_id_1, node_id_1));
+
       _is_mesh_modified = true;
     }
     _cutter_mesh->prepare_for_use();

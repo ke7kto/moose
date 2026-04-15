@@ -53,7 +53,7 @@ TC1 = 1.0
     bottom_left = '-0.01 17.999  0'
     top_right = '5 22.001  0'
     boundary_new = n1
-    boundaries_old = left
+    included_boundaries = left
   []
   [dirichlet_bc]
     type = SideSetsFromNodeSetsGenerator
@@ -120,7 +120,7 @@ TC1 = 1.0
   []
 []
 
-[Modules/TensorMechanics/Master]
+[Physics/SolidMechanics/QuasiStatic]
   [all]
     strain = SMALL
     add_variables = true
@@ -360,7 +360,7 @@ TC1 = 1.0
   []
   [vol_frac]
     type = ParsedPostprocessor
-    function = 'total_vol / mesh_volume'
+    expression = 'total_vol / mesh_volume'
     pp_names = 'total_vol mesh_volume'
   []
   [sensitivity]
@@ -377,7 +377,7 @@ TC1 = 1.0
   []
   [cost_frac]
     type = ParsedPostprocessor
-    function = 'cost / mesh_volume'
+    expression = 'cost / mesh_volume'
     pp_names = 'cost mesh_volume'
   []
   [objective]

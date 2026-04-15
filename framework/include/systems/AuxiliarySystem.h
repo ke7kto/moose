@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,6 +11,7 @@
 
 // MOOSE includes
 #include "SystemBase.h"
+#include "LinearFVGradientInterface.h"
 #include "ExecuteMooseObjectWarehouse.h"
 #include "PerfGraphInterface.h"
 
@@ -18,6 +19,7 @@
 #include "libmesh/transient_system.h"
 
 // Forward declarations
+class AuxKernelBase;
 template <typename ComputeValueType>
 class AuxKernelTempl;
 typedef AuxKernelTempl<Real> AuxKernel;
@@ -38,13 +40,16 @@ class NumericVector;
  * A system that holds auxiliary variables
  *
  */
-class AuxiliarySystem : public SystemBase, public PerfGraphInterface
+class AuxiliarySystem : public SystemBase,
+                        public PerfGraphInterface,
+                        public LinearFVGradientInterface
 {
 public:
   AuxiliarySystem(FEProblemBase & subproblem, const std::string & name);
   virtual ~AuxiliarySystem();
 
   virtual void initialSetup() override;
+  virtual void reinit() override;
   virtual void timestepSetup() override;
   virtual void customSetup(const ExecFlagType & exec_type) override;
   virtual void subdomainSetup() override;
@@ -55,22 +60,6 @@ public:
   virtual void addVariable(const std::string & var_type,
                            const std::string & name,
                            InputParameters & parameters) override;
-  /**
-   * Add a time integrator
-   * @param type Type of the integrator
-   * @param name The name of the integrator
-   * @param parameters Integrator params
-   */
-  void addTimeIntegrator(const std::string & type,
-                         const std::string & name,
-                         InputParameters & parameters) override;
-  using SystemBase::addTimeIntegrator;
-
-  /**
-   * Adds u_dot, u_dotdot, u_dot_old and u_dotdot_old
-   * vectors if requested by the time integrator
-   */
-  void addDotVectors();
 
   /**
    * Adds an auxiliary kernel
@@ -81,6 +70,12 @@ public:
   void addKernel(const std::string & kernel_name,
                  const std::string & name,
                  InputParameters & parameters);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  void addKokkosKernel(const std::string & kernel_name,
+                       const std::string & name,
+                       InputParameters & parameters);
+#endif
 
   /**
    * Adds a scalar kernel
@@ -93,28 +88,17 @@ public:
                        InputParameters & parameters);
 
   virtual void reinitElem(const Elem * elem, THREAD_ID tid) override;
-  virtual void
-  reinitElemFace(const Elem * elem, unsigned int side, BoundaryID bnd_id, THREAD_ID tid) override;
+  virtual void reinitElemFace(const Elem * elem, unsigned int side, THREAD_ID tid) override;
 
   const NumericVector<Number> * const & currentSolution() const override
   {
     return _current_solution;
   }
 
-  NumericVector<Number> * solutionUDot() override { return _u_dot; }
-  NumericVector<Number> * solutionUDotDot() override { return _u_dotdot; }
-  NumericVector<Number> * solutionUDotOld() override { return _u_dot_old; }
-  NumericVector<Number> * solutionUDotDotOld() override { return _u_dotdot_old; }
-  const NumericVector<Number> * solutionUDot() const override { return _u_dot; }
-  const NumericVector<Number> * solutionUDotDot() const override { return _u_dotdot; }
-  const NumericVector<Number> * solutionUDotOld() const override { return _u_dot_old; }
-  const NumericVector<Number> * solutionUDotDotOld() const override { return _u_dotdot_old; }
-
   virtual void serializeSolution();
-  virtual NumericVector<Number> & serializedSolution() override;
 
   // This is an empty function since the Aux system doesn't have a matrix!
-  virtual void augmentSparsity(SparsityPattern::Graph & /*sparsity*/,
+  virtual void augmentSparsity(libMesh::SparsityPattern::Graph & /*sparsity*/,
                                std::vector<dof_id_type> & /*n_nz*/,
                                std::vector<dof_id_type> & /*n_oz*/) override;
 
@@ -122,7 +106,11 @@ public:
    * Compute auxiliary variables
    * @param type Time flag of which variables should be computed
    */
-  virtual void compute(ExecFlagType type);
+  virtual void compute(ExecFlagType type) override;
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  void kokkosCompute(ExecFlagType type);
+#endif
 
   /**
    * Get a list of dependent UserObjects for this exec type
@@ -135,7 +123,7 @@ public:
   /**
    * Get the minimum quadrature order for evaluating elemental auxiliary variables
    */
-  virtual Order getMinQuadratureOrder() override;
+  virtual libMesh::Order getMinQuadratureOrder() override;
 
   /**
    * Indicated whether this system needs material properties on boundaries.
@@ -143,12 +131,16 @@ public:
    */
   bool needMaterialOnSide(BoundaryID bnd_id);
 
-  virtual System & sys() { return _sys; }
+  virtual libMesh::System & sys() { return _sys; }
 
-  virtual System & system() override { return _sys; }
-  virtual const System & system() const override { return _sys; }
+  virtual libMesh::System & system() override { return _sys; }
+  virtual const libMesh::System & system() const override { return _sys; }
 
-  virtual void setPreviousNewtonSolution();
+  using LinearFVGradientInterface::linearFVLimitedGradientContainer;
+  using LinearFVGradientInterface::requestLinearFVLimitedGradients;
+
+  /// Copies the current solution into the previous nonlinear iteration solution
+  virtual void copyCurrentIntoPreviousNL();
 
   void setScalarVariableCoupleableTags(ExecFlagType type);
 
@@ -161,6 +153,15 @@ public:
   const ExecuteMooseObjectWarehouse<AuxKernel> & elemAuxWarehouse() const;
   const ExecuteMooseObjectWarehouse<VectorAuxKernel> & elemVectorAuxWarehouse() const;
   const ExecuteMooseObjectWarehouse<ArrayAuxKernel> & elemArrayAuxWarehouse() const;
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  const ExecuteMooseObjectWarehouse<AuxKernelBase> & kokkosNodalAuxWarehouse() const;
+  const ExecuteMooseObjectWarehouse<AuxKernelBase> & kokkosElemAuxWarehouse() const;
+#endif
+
+  /// Computes and stores ||current - old|| / ||current|| for each variable in the given vector
+  /// @param var_diffs a vector being filled with the L2 norm of the solution difference
+  void variableWiseRelativeSolutionDifferenceNorm(std::vector<Number> & var_diffs) const;
 
 protected:
   void computeScalarVars(ExecFlagType type);
@@ -178,24 +179,10 @@ protected:
   template <typename AuxKernelType>
   void computeNodalVarsHelper(const MooseObjectWarehouse<AuxKernelType> & warehouse);
 
-  FEProblemBase & _fe_problem;
-
-  System & _sys;
+  libMesh::System & _sys;
 
   /// solution vector from nonlinear solver
   const NumericVector<Number> * _current_solution;
-  /// Serialized version of the solution vector, or nullptr if a
-  /// serialized solution is not needed
-  std::unique_ptr<NumericVector<Number>> _serialized_solution;
-  /// solution vector for u^dot
-  NumericVector<Number> * _u_dot;
-  /// solution vector for u^dotdot
-  NumericVector<Number> * _u_dotdot;
-
-  /// Old solution vector for u^dot
-  NumericVector<Number> * _u_dot_old;
-  /// Old solution vector for u^dotdot
-  NumericVector<Number> * _u_dotdot_old;
 
   /// The current states of the solution (0 = current, 1 = old, etc)
   std::vector<NumericVector<Number> *> _solution_state;
@@ -225,6 +212,12 @@ protected:
   // Storage for ArrayAuxKernel objects
   ExecuteMooseObjectWarehouse<ArrayAuxKernel> _nodal_array_aux_storage;
   ExecuteMooseObjectWarehouse<ArrayAuxKernel> _elemental_array_aux_storage;
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  // Storage for KokkosAuxKernel objects
+  ExecuteMooseObjectWarehouse<AuxKernelBase> _kokkos_nodal_aux_storage;
+  ExecuteMooseObjectWarehouse<AuxKernelBase> _kokkos_elemental_aux_storage;
+#endif
 
   friend class ComputeIndicatorThread;
   friend class ComputeMarkerThread;
@@ -272,3 +265,17 @@ AuxiliarySystem::elemArrayAuxWarehouse() const
 {
   return _elemental_array_aux_storage;
 }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+inline const ExecuteMooseObjectWarehouse<AuxKernelBase> &
+AuxiliarySystem::kokkosNodalAuxWarehouse() const
+{
+  return _kokkos_nodal_aux_storage;
+}
+
+inline const ExecuteMooseObjectWarehouse<AuxKernelBase> &
+AuxiliarySystem::kokkosElemAuxWarehouse() const
+{
+  return _kokkos_elemental_aux_storage;
+}
+#endif

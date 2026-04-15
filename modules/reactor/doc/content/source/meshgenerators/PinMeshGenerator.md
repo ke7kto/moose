@@ -4,7 +4,7 @@
 
 ## Overview
 
-This object is designed to be used in the Reactor MeshGenerator workflow, which also consists of [`ReactorMeshParams`](ReactorMeshParams.md), [`AssemblyMeshGenerator`](AssemblyMeshGenerator.md), and [`CoreMeshGenerator`](CoreMeshGenerator.md).
+This object is designed to be used in the Reactor MeshGenerator workflow, which also consists of [`ReactorMeshParams`](ReactorMeshParams.md), [`AssemblyMeshGenerator`](AssemblyMeshGenerator.md), [`ControlDrumMeshGenerator`](ControlDrumMeshGenerator.md), and [`CoreMeshGenerator`](CoreMeshGenerator.md).
 
 The `PinMeshGenerator` object generates square or hexagonal reactor geometry pin cell structures which may be combined into larger assembly structures using `AssemblyMeshGenerator`. The block IDs, external boundary ID, region IDs (e.g., materials), and reporting IDs (extra element integers identifying unique planes and pins, as described in [`PatternedCartesianMeshGenerator`](PatternedCartesianMeshGenerator.md) and [`PatternedHexMeshGenerator`](PatternedHexMeshGenerator.md) are automatically assigned once the user provides some basic information.
 
@@ -21,7 +21,7 @@ The [!param](/Mesh/PinMeshGenerator/region_ids) parameter provides a map of "reg
 
 The region_ids parameter entries can conveniently be selected to match material ids to be assigned to each region of the problem. Using the same value in multiple entries of the [!param](/Mesh/PinMeshGenerator/region_ids) parameter will effectively assign elements in multiple zones to the same region_id.
 
-Region IDs are mapped to the mesh as an extra element integer, where the integer value for each mesh element will match the information provided in [!param](/Mesh/PinMeshGenerator/region_ids). For ease of use, block ids are generated automatically by the mesh generator, and for users who require element identification by block name, the optional parameter [!param](/Mesh/PinMeshGenerator/block_names) can be defined to set block names in the same manner as [!param](/Mesh/PinMeshGenerator/region_ids). In the resulting mesh, each block name will be prepended with the prefix `RGMB_PIN<pin_type_id>_`, where `<pin_type_id>` is the pin ID provided by the user through [!param](/Mesh/PinMeshGenerator/pin_type). If block names are not provided by the user, block names will be assigned automatically to have the name `RGMB_PIN<pin_type_id>`. Regardless of whether block names are provided are not, the suffix `_TRI` is automatically added to the block name for all triangular elements in the central pin mesh elements when [!param](/Mesh/PinMeshGenerator/quad_center_elements) is set to false. This is to ensure that quadrilateral elements and triangular elements that might otherwise share the same region ID are mapped to separate block names. If [!param](/Mesh/PinMeshGenerator/use_as_assembly) is set to true, the block name will have the prefix `RGMB_ASSEMBLY<pin_type_id>` instead of `RGMB_PIN<pin_type_id>`.
+Region IDs are mapped to the mesh as an extra element integer, where the integer value for each mesh element will match the information provided in [!param](/Mesh/PinMeshGenerator/region_ids). For ease of use, block ids are generated automatically by the mesh generator, and for users who require element identification by block name, the optional parameter [!param](/Mesh/PinMeshGenerator/block_names) can be defined to set block names in the same manner as [!param](/Mesh/PinMeshGenerator/region_ids). In the resulting mesh, each block name will be prepended with the prefix `RGMB_PIN<pin_type_id>_`, where `<pin_type_id>` is the pin ID provided by the user through [!param](/Mesh/PinMeshGenerator/pin_type). If block names are not provided by the user, block names will be assigned automatically to have the name `RGMB_PIN<pin_type_id>`. If [ReactorMeshParams](ReactorMeshParams.md)/[!param](/Mesh/ReactorMeshParams/region_id_as_block_name) is set to `true`, the resulting element will have the block name `RGMB_PIN<pin_type_id>_REG<region_id>`, where `<region_id>` is the region ID of the element. Note that [!param](/Mesh/ReactorMeshParams/region_id_as_block_name) should not be used in conjunction with [!param](/Mesh/PinMeshGenerator/block_names). Regardless of whether block names are provided or not, the suffix `_TRI` is automatically added to the block name for all triangular elements in the central pin mesh elements when [!param](/Mesh/PinMeshGenerator/quad_center_elements) is set to false. This is to ensure that quadrilateral elements and triangular elements that might otherwise share the same region ID are mapped to separate block names. If [!param](/Mesh/PinMeshGenerator/use_as_assembly) is set to true, the block name will have the prefix `RGMB_ASSEMBLY<pin_type_id>` instead of `RGMB_PIN<pin_type_id>`.
 
 ## Reporting ID Information
 
@@ -37,9 +37,7 @@ If the pin is extruded to three dimensions the top-most boundary ID must be assi
 
 ## Metadata Information
 
-Users may be interested in defining metadata to represent the reactor geometry and region IDs assigned to each geometry zone, which may be useful to users who want mesh geometry and composition information without having to inspect the generated mesh itself. In order to see the values of these metadata entries as console output, [!param](/Mesh/PinMeshGenerator/show_rgmb_metadata) can be set to true.
-
-At the pin level, the following metadata is defined on the pin mesh:
+Users may be interested in defining metadata to represent the reactor geometry and region IDs assigned to each geometry zone, which may be useful to users who want mesh geometry and composition information without having to inspect the generated mesh itself. At the pin level, the following metadata is defined on the pin mesh:
 
 - `pin_type`: pin_type id associated with pin mesh, equivalent to the input parameter [!param](/Mesh/PinMeshGenerator/pin_type)
 - `pitch`: Pitch of outermost boundary polygon, equivalent to the input parameter [!param](/Mesh/PinMeshGenerator/pitch)
@@ -52,17 +50,27 @@ At the pin level, the following metadata is defined on the pin mesh:
 
 In addition, the value of the metadata `reactor_params_name` can be used to retrieve global metadata defined by [ReactorMeshParams](ReactorMeshParams.md). Please refer to [ReactorMeshParams](ReactorMeshParams.md) to see a list of metadata defined by this mesh generator.
 
+For applications where an output mesh does not need to be created and meshing routines can consist entirely of defining reactor-based metadata, the parameter `[Mesh]`/[!param](/Mesh/MeshGeneratorMesh/data_driven_generator) can be set to the mesh generator that would generate an output mesh from RGMB metadata.
+
 ## Example Syntax
 
 !listing modules/reactor/test/tests/meshgenerators/pin_mesh_generator/pin_square.i block=Mesh
 
 This is the resulting mesh block layout, where by default a single block is assigned to the triangular elements and another block is assigned to the quadrilateral elements:
 
-!media reactor/meshgenerators/pin_mesh_generator.png style=width:40%;
+!media reactor/meshgenerators/pin_mesh_generator.png
+       style=width:40%;
+       alt=The mesh layout for a square pin, with a mix of quadrilateral and triangular elements.
 
 This is the resulting "region_id" extra element integer layout, which was chosen by setting the region IDs for each radial region within the pin:
 
-!media reactor/meshgenerators/pin_mesh_generator_rid.png style=width:40%;
+!media reactor/meshgenerators/pin_mesh_generator_rid.png
+       style=width:40%;
+       alt=Region IDs for the pin mesh.
+
+## Constructive Solid Geometry (CSG)
+
+`PinMeshGenerator` can generate a [constructive solid geometry (CSG)](syntax/CSG/index.md), meaning that `--csg-only` can be called on a mesh input file that contains PinMeshGenerator to represent the pin structure as a CSG object. Radially, a separate CSG surface is created for each entry in [!param](/Mesh/PinMeshGenerator/ring_radii) and [!param](/Mesh/PinMeshGenerator/duct_halfpitch), where the outer hexagonal / Cartesian boundary defines the outermost radial surface. Each of these radial and axial surfaces are then used to define a separate CSG cell of the geometry. All CSG cells are added to the root universe that is part of the output CSG object. Each cell is filled with a material named `"rgmb_region_[REGION_ID]"`, where `[REGION_ID]` refers to the region ID of that particular radial and axial region of the pincell. Currently, sector-wise generation of CSG regions are not currently supported by `PinMeshGenerator`.
 
 !syntax parameters /Mesh/PinMeshGenerator
 

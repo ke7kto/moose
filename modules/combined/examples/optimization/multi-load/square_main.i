@@ -101,7 +101,7 @@ Emin = 1.0e-6
   []
 []
 
-[Modules/TensorMechanics/Master]
+[Physics/SolidMechanics/QuasiStatic]
   [all]
     strain = SMALL
     add_variables = true
@@ -208,7 +208,7 @@ Emin = 1.0e-6
   []
   [vol_frac]
     type = ParsedPostprocessor
-    function = 'total_vol / mesh_volume'
+    expression = 'total_vol / mesh_volume'
     pp_names = 'total_vol mesh_volume'
   []
   [sensitivity]

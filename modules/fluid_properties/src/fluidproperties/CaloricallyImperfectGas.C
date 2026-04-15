@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -270,7 +270,7 @@ CaloricallyImperfectGas::p_from_v_e(const ADReal & v, const ADReal & e) const
   Real dxd2 = 0;
   p_from_v_e(raw1, raw2, x, dxd1, dxd2);
 
-  DualReal result = x;
+  ADReal result = x;
   result.derivatives() = v.derivatives() * dxd1 + e.derivatives() * dxd2;
   return result;
 }
@@ -304,7 +304,7 @@ CaloricallyImperfectGas::T_from_v_e(const ADReal & v, const ADReal & e) const
   Real dxd2 = 0;
   T_from_v_e(raw1, raw2, x, dxd1, dxd2);
 
-  DualReal result = x;
+  ADReal result = x;
   result.derivatives() = v.derivatives() * dxd1 + e.derivatives() * dxd2;
   return result;
 }
@@ -333,6 +333,7 @@ CaloricallyImperfectGas::c_from_v_e(Real v, Real e) const
 ADReal
 CaloricallyImperfectGas::c_from_v_e(const ADReal & v, const ADReal & e) const
 {
+  using std::sqrt;
   const auto T = T_from_v_e(v, e);
 
   const auto c2 = gamma_from_v_e(v, e) * _R_specific * T;
@@ -340,7 +341,7 @@ CaloricallyImperfectGas::c_from_v_e(const ADReal & v, const ADReal & e) const
     return getNaN("Sound speed squared (gamma * R * T) is negative: c2 = " +
                   Moose::stringify(MetaPhysicL::raw_value(c2)) + ".");
 
-  return std::sqrt(c2);
+  return sqrt(c2);
 }
 
 void
@@ -367,7 +368,8 @@ CaloricallyImperfectGas::c_from_p_T(Real p, Real T) const
 ADReal
 CaloricallyImperfectGas::c_from_p_T(const ADReal & p, const ADReal & T) const
 {
-  return std::sqrt(gamma_from_p_T(p, T) * _R_specific * T);
+  using std::sqrt;
+  return sqrt(gamma_from_p_T(p, T) * _R_specific * T);
 }
 
 void
@@ -415,7 +417,7 @@ CaloricallyImperfectGas::cv_from_v_e(ADReal v, ADReal e) const
   Real dxd2 = 0;
   cv_from_v_e(raw1, raw2, x, dxd1, dxd2);
 
-  DualReal result = x;
+  ADReal result = x;
   result.derivatives() = v.derivatives() * dxd1 + e.derivatives() * dxd2;
   return result;
 }
@@ -446,7 +448,7 @@ CaloricallyImperfectGas::gamma_from_v_e(ADReal v, ADReal e) const
   Real dxd2 = 0;
   gamma_from_v_e(raw1, raw2, x, dxd1, dxd2);
 
-  DualReal result = x;
+  ADReal result = x;
   result.derivatives() = v.derivatives() * dxd1 + e.derivatives() * dxd2;
   return result;
 }
@@ -492,7 +494,7 @@ CaloricallyImperfectGas::gamma_from_p_T(ADReal p, ADReal T) const
   Real dxd1 = 0;
   Real dxd2 = 0;
   gamma_from_p_T(raw1, raw2, x, dxd1, dxd2);
-  DualReal result = x;
+  ADReal result = x;
   result.derivatives() = p.derivatives() * dxd1 + T.derivatives() * dxd2;
   return result;
 }
@@ -630,11 +632,8 @@ CaloricallyImperfectGas::rho_from_p_T(const ADReal & p, const ADReal & T) const
 }
 
 void
-CaloricallyImperfectGas::rho_from_p_T(const DualReal & p,
-                                      const DualReal & T,
-                                      DualReal & rho,
-                                      DualReal & drho_dp,
-                                      DualReal & drho_dT) const
+CaloricallyImperfectGas::rho_from_p_T(
+    const ADReal & p, const ADReal & T, ADReal & rho, ADReal & drho_dp, ADReal & drho_dT) const
 {
   rho = rho_from_p_T(p, T);
   drho_dp = _molar_mass / (_R * T);
@@ -700,7 +699,7 @@ CaloricallyImperfectGas::e_from_T_v(const ADReal & T, const ADReal & v) const
   Real dxd2 = 0;
   e_from_T_v(raw1, raw2, x, dxd1, dxd2);
 
-  DualReal result = x;
+  ADReal result = x;
   result.derivatives() = T.derivatives() * dxd1 + v.derivatives() * dxd2;
   return result;
 }
@@ -757,7 +756,11 @@ CaloricallyImperfectGas::cv_from_T_v(Real T, Real /*v*/) const
   return cv_from_T(T);
 }
 
-Real CaloricallyImperfectGas::e_spndl_from_v(Real /*v*/) const { return _e_c; }
+Real
+CaloricallyImperfectGas::e_spndl_from_v(Real /*v*/) const
+{
+  return _e_c;
+}
 
 void
 CaloricallyImperfectGas::v_e_spndl_from_T(Real /*T*/, Real & v, Real & e) const
@@ -796,7 +799,7 @@ CaloricallyImperfectGas::e_from_p_T(ADReal p, ADReal T) const
   Real dxd2 = 0;
   e_from_p_T(raw1, raw2, x, dxd1, dxd2);
 
-  DualReal result = x;
+  ADReal result = x;
   result.derivatives() = p.derivatives() * dxd1 + T.derivatives() * dxd2;
   return result;
 }

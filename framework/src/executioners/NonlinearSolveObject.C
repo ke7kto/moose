@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "NonlinearSolveObject.h"
+#include "FEProblemBase.h"
 
 InputParameters
 NonlinearSolveObject::validParams()
@@ -15,4 +16,7 @@ NonlinearSolveObject::validParams()
   return emptyInputParameters();
 }
 
-NonlinearSolveObject::NonlinearSolveObject(Executioner & ex) : SolveObject(ex) {}
+NonlinearSolveObject::NonlinearSolveObject(Executioner & ex)
+  : SolveObject(ex), _nl(_problem.getNonlinearSystemBase(/*nl_sys=*/0))
+{
+}

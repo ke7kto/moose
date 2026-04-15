@@ -31,9 +31,8 @@ NAVIER_STOKES             := no
 # phase_field is required by Step 10.
 PHASE_FIELD               := yes
 POROUS_FLOW               := no
-RICHARDS                  := no
-# tensor_mechanics is required by Steps 9-10.
-TENSOR_MECHANICS          := yes
+# solid_mechanics is required by Steps 9-10.
+SOLID_MECHANICS          := yes
 XFEM                      := no
 include           $(MOOSE_DIR)/modules/modules.mk
 ###############################################################################

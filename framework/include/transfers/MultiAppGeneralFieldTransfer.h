@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -44,6 +44,7 @@ public:
   virtual void initialSetup() override;
   virtual void getAppInfo() override;
   virtual void execute() override;
+  virtual void postExecute() override;
 
   /// Get the source variable name, with the suffix for array/vector variables
   VariableName getFromVarName(unsigned int var_index);
@@ -108,7 +109,7 @@ protected:
    * @param pl locator for the mesh of the source app
    * @param pt point in the local coordinates of the source app we're considering
    */
-  bool inMesh(const PointLocatorBase * const pl, const Point & pt) const;
+  bool inMesh(const libMesh::PointLocatorBase * const pl, const Point & pt) const;
 
   /*
    * Whether or not a given element is part of the given blocks
@@ -135,7 +136,7 @@ protected:
    * @param pt point to examine, in the local coordinates (same as the point locator)
    */
   bool inBlocks(const std::set<SubdomainID> & blocks,
-                const PointLocatorBase * const pl,
+                const libMesh::PointLocatorBase * const pl,
                 const Point & pt) const;
 
   /*
@@ -167,7 +168,7 @@ protected:
   bool onBoundaries(const std::set<BoundaryID> & boundaries,
                     const std::set<SubdomainID> & block_restriction,
                     const MooseMesh & mesh,
-                    const PointLocatorBase * const pl,
+                    const libMesh::PointLocatorBase * const pl,
                     const Point & pt) const;
 
   /**
@@ -253,7 +254,7 @@ protected:
   const bool _elemental_boundary_restriction_on_sides;
 
   /// Point locators, useful to examine point location with regards to domain restriction
-  std::vector<std::unique_ptr<PointLocatorBase>> _from_point_locators;
+  std::vector<std::unique_ptr<libMesh::PointLocatorBase>> _from_point_locators;
 
   /// First app each processor owns, indexed by processor
   /// If no app on the processor, will have a -1 for the app start instead
@@ -265,7 +266,13 @@ protected:
   bool _greedy_search;
 
   /// Whether to look for conflicts between origin points, multiple valid values for a target point
-  const bool _search_value_conflicts;
+  bool _search_value_conflicts;
+
+  /// Whether we already output the search value conflicts
+  bool _already_output_search_value_conflicts;
+
+  /// How many conflicts are output to console
+  const unsigned int _search_value_conflicts_max_log;
 
   /**
    * @brief Detects whether two source values are valid and equidistant for a desired target
@@ -510,10 +517,10 @@ template <typename Output>
 class RecordRequests
 {
 protected:
-  typedef typename TensorTools::MakeBaseNumber<Output>::type DofValueType;
+  typedef typename libMesh::TensorTools::MakeBaseNumber<Output>::type DofValueType;
 
 public:
-  typedef typename TensorTools::MakeReal<Output>::type RealType;
+  typedef typename libMesh::TensorTools::MakeReal<Output>::type RealType;
   typedef DofValueType ValuePushType;
   typedef Output FunctorValue;
 
@@ -531,9 +538,9 @@ public:
     }
   }
 
-  void init_context(FEMContext &) {}
+  void init_context(libMesh::FEMContext &) {}
 
-  Output eval_at_node(const FEMContext &,
+  Output eval_at_node(const libMesh::FEMContext &,
                       unsigned int /*variable_index*/,
                       unsigned int /*elem_dim*/,
                       const Node & n,
@@ -544,7 +551,7 @@ public:
     return 0;
   }
 
-  Output eval_at_point(const FEMContext &,
+  Output eval_at_point(const libMesh::FEMContext &,
                        unsigned int /*variable_index*/,
                        const Point & n,
                        const Real /*time*/,
@@ -556,7 +563,7 @@ public:
 
   bool is_grid_projection() { return false; }
 
-  void eval_mixed_derivatives(const FEMContext & /*c*/,
+  void eval_mixed_derivatives(const libMesh::FEMContext & /*c*/,
                               unsigned int /*i*/,
                               unsigned int /*dim*/,
                               const Node & /*n*/,
@@ -572,7 +579,7 @@ public:
   }
 
   void eval_old_dofs(const Elem &,
-                     const FEType &,
+                     const libMesh::FEType &,
                      unsigned int,
                      unsigned int,
                      std::vector<dof_id_type> &,
@@ -616,12 +623,12 @@ template <typename Output>
 class CachedData
 {
 protected:
-  typedef typename TensorTools::MakeBaseNumber<Output>::type DofValueType;
+  typedef typename libMesh::TensorTools::MakeBaseNumber<Output>::type DofValueType;
 
 public:
   typedef PointIndexedMap Cache;
 
-  typedef typename TensorTools::MakeReal<Output>::type RealType;
+  typedef typename libMesh::TensorTools::MakeReal<Output>::type RealType;
   typedef DofValueType ValuePushType;
   typedef Output FunctorValue;
 
@@ -630,7 +637,7 @@ public:
    * @param cache a map/cache to search for points in
    * @param backup a function that can be queried for a point value when the cache doesnt have it
    */
-  CachedData(const Cache & cache, const FunctionBase<Output> & backup, Real default_value)
+  CachedData(const Cache & cache, const libMesh::FunctionBase<Output> & backup, Real default_value)
     : _cache(cache), _backup(backup.clone()), _default_value(default_value)
   {
   }
@@ -643,10 +650,10 @@ public:
   {
   }
 
-  void init_context(FEMContext &) {}
+  void init_context(libMesh::FEMContext &) {}
 
   /// Gets a value at the node location
-  Output eval_at_node(const FEMContext &,
+  Output eval_at_node(const libMesh::FEMContext &,
                       unsigned int /*i*/,
                       unsigned int /*elem_dim*/,
                       const Node & n,
@@ -666,7 +673,7 @@ public:
   }
 
   /// Gets a value at a point
-  Output eval_at_point(const FEMContext &,
+  Output eval_at_point(const libMesh::FEMContext &,
                        unsigned int /*i*/,
                        const Point & n,
                        const Real /*time*/,
@@ -686,7 +693,7 @@ public:
 
   bool is_grid_projection() { return false; }
 
-  void eval_mixed_derivatives(const FEMContext & /*c*/,
+  void eval_mixed_derivatives(const libMesh::FEMContext & /*c*/,
                               unsigned int /*i*/,
                               unsigned int /*dim*/,
                               const Node & /*n*/,
@@ -702,7 +709,7 @@ public:
   }
 
   void eval_old_dofs(const Elem &,
-                     const FEType &,
+                     const libMesh::FEType &,
                      unsigned int,
                      unsigned int,
                      std::vector<dof_id_type> &,
@@ -716,7 +723,7 @@ private:
   const Cache & _cache;
 
   /// Function to evaluate for uncached points
-  std::unique_ptr<FunctionBase<Output>> _backup;
+  std::unique_ptr<libMesh::FunctionBase<Output>> _backup;
 
   /// Default value when no point is found
   const Real _default_value;

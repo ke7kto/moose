@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -62,6 +62,9 @@ public:
    * Checks whether we are defined on the provided element
    */
   bool hasBlocks(const Elem * elem) const;
+
+  bool supportsFaceArg() const override final { return true; }
+  bool supportsElemSideQpArg() const override final { return false; }
 
 private:
   /// The mesh that this functor lives on
@@ -143,11 +146,8 @@ CellCenteredMapFunctor<T, Map>::evaluate(const ElemArg & elem_arg, const StateAr
 {
   const Elem * const elem = elem_arg.elem;
 
-  try
-  {
-    return libmesh_map_find(*this, elem->id());
-  }
-  catch (libMesh::LogicError &)
+  auto it = this->find(elem->id());
+  if (it == this->end())
   {
     if (!_sub_ids.empty() && !_sub_ids.count(elem->subdomain_id()))
       mooseError("Attempted to evaluate CellCenteredMapFunctor '",
@@ -162,6 +162,8 @@ CellCenteredMapFunctor<T, Map>::evaluate(const ElemArg & elem_arg, const StateAr
                  "' with a key that does not yet exist in the map. Make sure to fill your "
                  "CellCenteredMapFunctor for all elements you will attempt to access later.");
   }
+
+  return it->second;
 }
 
 template <typename T, typename Map>

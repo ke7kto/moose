@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -25,6 +25,11 @@ ConstantPostprocessor::validParams()
 ConstantPostprocessor::ConstantPostprocessor(const InputParameters & params)
   : GeneralPostprocessor(params), _value(getParam<Real>("value"))
 {
+  const PostprocessorReporterName r_name(name());
+  auto & write_data = _fe_problem.getReporterData(ReporterData::WriteKey());
+
+  // Initialize value
+  write_data.setReporterValue<PostprocessorValue>(r_name, _value);
 }
 
 Real

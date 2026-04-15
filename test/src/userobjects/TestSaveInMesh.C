@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -15,6 +15,8 @@
 #include "libmesh/checkpoint_io.h"
 #include "libmesh/nemesis_io.h"
 
+using namespace libMesh;
+
 registerMooseObject("MooseTestApp", TestSaveInMesh);
 
 InputParameters
@@ -28,7 +30,7 @@ TestSaveInMesh::validParams()
   params.addParam<std::string>(
       "mesh_unique",
       std::string(),
-      "Test whether or not throw out an error when the saved mesh mesh has already been retreived");
+      "Test whether or not throw out an error when the saved mesh mesh has already been retrieved");
   return params;
 }
 

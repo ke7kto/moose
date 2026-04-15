@@ -249,7 +249,7 @@ derivative vector are left uninitialized.
 
 We can also check variable coupling. Let us assume a reaction-type problem in
 which the variable $u$ disappears at a rate directly proportional to its
-concentration and appears at at rate directly proportional to the concentration
+concentration and appears at a rate directly proportional to the concentration
 of the variable $v$. The strong form of this residual is then simply
 $u - v$. Examining the derivatives of this term produced by automatic
 differentiation
@@ -297,7 +297,7 @@ interface. Material properties with automatic differentiation info can be
 created in `Material` classes by using the `declareADProperty` API. [!ac](AD) material
 properties can be retrieved in compute objects like `ADKernels` by using the
 `getADMaterialProperty` API. For detailed examples of [!ac](AD) use, the reader is
-encouraged to investigate the tensor mechanics, navier-stokes, and level-set
+encouraged to investigate the solid mechanics, navier-stokes, and level-set
 modules, all of which heavily leverage MOOSE's [!ac](AD) capabilities.
 
 ### Maximum AD container size id=max_container_size

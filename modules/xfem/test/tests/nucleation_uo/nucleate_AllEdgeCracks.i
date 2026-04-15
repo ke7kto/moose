@@ -34,7 +34,6 @@
   displacements = 'disp_x disp_y'
   crack_front_points_provider = cut_mesh2
   2d=true
-  number_points_from_provider = 0
   crack_direction_method = CurvedCrackFront
   radius_inner = '0.15'
   radius_outer = '0.45'
@@ -42,7 +41,6 @@
   youngs_modulus = 207000
   block = 0
   incremental = true
-  used_by_xfem_to_grow_crack = true
 []
 
 [UserObjects]
@@ -52,8 +50,9 @@
     scalar_type = MaxPrincipal
     nucleation_threshold = 180
     initiate_on_boundary = 'left'
-    nucleation_length = .2
     nucleation_radius = .21
+    edge_extension_factor = 2e-5
+    nucleation_length = 0.11
   []
   [cut_mesh2]
     type = MeshCut2DFractureUserObject
@@ -64,7 +63,7 @@
   []
 []
 
-[Modules/TensorMechanics/Master]
+[Physics/SolidMechanics/QuasiStatic]
   [all]
     strain = FINITE
     planar_formulation = plane_strain
@@ -141,6 +140,5 @@
 
 [Outputs]
   csv=true
-  exodus=true
   execute_on = TIMESTEP_END
 []

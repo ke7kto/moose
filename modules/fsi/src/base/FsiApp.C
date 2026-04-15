@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,17 +13,18 @@
 #include "MooseSyntax.h"
 
 #include "NavierStokesApp.h"
-#include "TensorMechanicsApp.h"
+#include "SolidMechanicsApp.h"
 
 InputParameters
 FsiApp::validParams()
 {
   InputParameters params = MooseApp::validParams();
 
+  params.set<bool>("use_legacy_initial_residual_evaluation_behavior") = false;
   return params;
 }
 
-FsiApp::FsiApp(InputParameters parameters) : MooseApp(parameters)
+FsiApp::FsiApp(const InputParameters & parameters) : MooseApp(parameters)
 {
   FsiApp::registerAll(_factory, _action_factory, _syntax);
 }
@@ -37,7 +38,7 @@ FsiApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
   Registry::registerActionsTo(af, {"FsiApp"});
 
   NavierStokesApp::registerAll(f, af, s);
-  TensorMechanicsApp::registerAll(f, af, s);
+  SolidMechanicsApp::registerAll(f, af, s);
 }
 
 void
@@ -46,7 +47,7 @@ FsiApp::registerApps()
   registerApp(FsiApp);
 
   NavierStokesApp::registerApps();
-  TensorMechanicsApp::registerApps();
+  SolidMechanicsApp::registerApps();
 }
 
 /***************************************************************************************************

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -39,6 +39,9 @@ public:
   {
     return _ad_functor.hasFaceSide(fi, fi_elem_side);
   }
+
+  bool supportsFaceArg() const override final { return _ad_functor.supportsFaceArg(); }
+  bool supportsElemSideQpArg() const override final { return _ad_functor.supportsElemSideQpArg(); }
 
 protected:
   ///@{

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -70,11 +70,18 @@ public:
    * @param print_deprecated controls the deprecated message
    * @return The created object
    */
+  ///@{
+  std::unique_ptr<MooseObject> createUnique(const std::string & obj_name,
+                                            const std::string & name,
+                                            const InputParameters & parameters,
+                                            THREAD_ID tid = 0,
+                                            bool print_deprecated = true);
   std::shared_ptr<MooseObject> create(const std::string & obj_name,
                                       const std::string & name,
                                       const InputParameters & parameters,
                                       THREAD_ID tid = 0,
                                       bool print_deprecated = true);
+  ///@}
 
   /**
    * Build an object (must be registered)
@@ -84,21 +91,39 @@ public:
    * @param tid The thread id that this copy will be created for
    * @return The created object
    */
+  ///@{
+  template <typename T>
+  std::unique_ptr<T> createUnique(const std::string & obj_name,
+                                  const std::string & name,
+                                  const InputParameters & parameters,
+                                  const THREAD_ID tid = 0);
   template <typename T>
   std::shared_ptr<T> create(const std::string & obj_name,
                             const std::string & name,
                             const InputParameters & parameters,
-                            THREAD_ID tid = 0)
-  {
-    std::shared_ptr<T> new_object =
-        std::dynamic_pointer_cast<T>(create(obj_name, name, parameters, tid, false));
-    if (!new_object)
-      mooseError("We expected to create an object of type '" + demangle(typeid(T).name()) +
-                 "'.\nInstead we received a parameters object for type '" + obj_name +
-                 "'.\nDid you call the wrong \"add\" method in your Action?");
+                            const THREAD_ID tid = 0);
+  ///@}
 
-    return new_object;
-  }
+  /**
+   * Clones the object \p object.
+   *
+   * Under the hood, this creates a copy of the InputParameters from \p object
+   * and constructs a new object with the copied parameters. The suffix _clone<i>
+   * will be added to the object's name, where <i> is incremented each time
+   * the object is cloned.
+   */
+  template <typename T>
+  std::unique_ptr<T> clone(const T & object);
+
+  /**
+   * Copy constructs the object \p object.
+   *
+   * Under the hood, the new object's parameters will point to the same address
+   * as the parameters in \p object. This can be dangerous and thus this is only
+   * allowed for a subset of objects.
+   */
+  template <typename T>
+  std::unique_ptr<T> copyConstruct(const T & object);
 
   /**
    * Releases any shared resources created as a side effect of creating an object through
@@ -133,7 +158,55 @@ public:
 
   MooseApp & app() { return _app; }
 
+  /**
+   * @return The InputParameters for the object that is currently being constructed,
+   * if any.
+   *
+   * Can be used to ensure that all MooseObjects are created using the Factory
+   */
+  const InputParameters * currentlyConstructing() const;
+
 private:
+  /**
+   * Internal method for checking if the created smart pointer is of the correct expected type.
+   *
+   * Used in create<T> and createUnique<T>.
+   */
+  template <class T, class SmartPtr>
+  void createCheckObjectType(const SmartPtr & object, const std::string & obj_name) const;
+
+  /**
+   * Internal method for creating a MooseObject, either as a
+   * shared_ptr or as a unique_ptr.
+   *
+   * This is needed because we need to explicitly create objects
+   * that are requested as a shared_ptr with make_shared, so that
+   * the std::enable_shared_from_this interface will work for
+   * those objects.
+   *
+   * We avoid code duplication by putting the creation logic
+   * for shared_ptr and unique_ptr in the same method.
+   *
+   * This is explicitly instantiated for
+   * std::unique_ptr<MooseObject> and std::shared_ptr<MooseObject>
+   * in Factory.C.
+   *
+   * @param obj_name Type of the object being constructed
+   * @param name Name for the object
+   * @param parameters Parameters this object should have
+   * @param tid The thread id that this copy will be created for
+   * @param deprecated_method_name The name of the method to throw a deprecated warning for, if
+   * any
+   * @return The created MooseObject
+   */
+  ///@{
+  template <class ptr_type>
+  ptr_type createTempl(const std::string & obj_name,
+                       const std::string & name,
+                       const InputParameters & parameters,
+                       const THREAD_ID tid,
+                       const std::optional<std::string> & deprecated_method_name);
+
   /**
    * Parse time string (mm/dd/yyyy HH:MM)
    * @param t_str String with the object expiration date, this must be in the form mm/dd/yyyy
@@ -153,6 +226,23 @@ private:
    */
   void reportUnregisteredError(const std::string & obj_name) const;
 
+  /**
+   * Initializes the data structures and the parameters (in the InputParameterWarehouse)
+   * for the object with the given state.
+   */
+  InputParameters & initialize(const std::string & type,
+                               const std::string & name,
+                               const InputParameters & from_params,
+                               const THREAD_ID tid);
+
+  /**
+   * Finalizes the creaction of \p object of type \p type.
+   *
+   * This will do some sanity checking on whether or not the parameters in the
+   * created object match the valid paramters of the associated type.
+   */
+  void finalize(const std::string & type, const MooseObject & object);
+
   /// Reference to the application
   MooseApp & _app;
 
@@ -164,7 +254,7 @@ private:
   /// Object name to class name association
   std::map<std::string, std::string> _name_to_class;
 
-  /// Storage for deprecated object experiation dates
+  /// Storage for deprecated object expiration dates
   std::map<std::string, std::time_t> _deprecated_time;
 
   /// Storage for the deprecated objects that have replacements
@@ -183,4 +273,105 @@ private:
   /// again - which is okay/allowed, while still allowing us to detect/reject cases of duplicate
   /// object name registration where the label/appname is not identical.
   std::set<std::pair<std::string, std::string>> _objects_by_label;
+
+  /// The object's parameters that are currently being constructed (if any).
+  /// This is a vector because we create within create, thus the last entry is the
+  /// one that is being constructed at the moment
+  std::vector<const InputParameters *> _currently_constructing;
+
+  /// Counter for keeping track of the number of times an object with a given name has
+  /// been cloned so that we can continue to create objects with unique names
+  std::map<const MooseObject *, unsigned int> _clone_counter;
 };
+
+template <class T, class SmartPtr>
+void
+Factory::createCheckObjectType(const SmartPtr & object, const std::string & obj_name) const
+{
+  if (!dynamic_cast<T *>(object.get()))
+    mooseError("We expected to create an object of type '" + MooseUtils::prettyCppType<T>() +
+               "'.\nInstead we received a parameters object for type '" + obj_name +
+               "'.\nDid you call the wrong \"add\" method in your Action?");
+}
+
+template <typename T>
+std::unique_ptr<T>
+Factory::createUnique(const std::string & obj_name,
+                      const std::string & name,
+                      const InputParameters & parameters,
+                      const THREAD_ID tid)
+{
+  auto object = createUnique(obj_name, name, parameters, tid, false);
+  createCheckObjectType<T>(object, obj_name);
+  return std::unique_ptr<T>(static_cast<T *>(object.release()));
+}
+
+template <typename T>
+std::shared_ptr<T>
+Factory::create(const std::string & obj_name,
+                const std::string & name,
+                const InputParameters & parameters,
+                const THREAD_ID tid)
+{
+  auto object = create(obj_name, name, parameters, tid, false);
+  createCheckObjectType<T>(object, obj_name);
+  return std::static_pointer_cast<T>(object);
+}
+
+template <typename T>
+std::unique_ptr<T>
+Factory::clone(const T & object)
+{
+  static_assert(std::is_base_of_v<MooseObject, T>, "Not a MooseObject");
+
+  const auto tid = object.template getParam<THREAD_ID>("_tid");
+  if (tid != 0)
+    mooseError("Factory::clone(): The object ",
+               object.typeAndName(),
+               " is threaded but cloning does not work with threaded objects");
+
+  // Clone the parameters; we can't copy construct InputParameters
+  InputParameters cloned_params = emptyInputParameters();
+  cloned_params += object.parameters();
+  if (const auto hit_node = object.parameters().getHitNode())
+    cloned_params.setHitNode(*hit_node, {});
+
+  // Fill the new parameters in the warehouse
+  const auto type = static_cast<const MooseBase &>(object).type();
+  const auto clone_count = _clone_counter[&object]++;
+  const auto name = object.name() + "_clone" + std::to_string(clone_count);
+  const auto & params = initialize(type, name, cloned_params, 0);
+
+  // Construct the object
+  _currently_constructing.push_back(&params);
+  auto cloned_object = std::make_unique<T>(params);
+  _currently_constructing.pop_back();
+
+  // Do some sanity checking
+  finalize(type, *cloned_object);
+
+  return cloned_object;
+}
+
+template <typename T>
+std::unique_ptr<T>
+Factory::copyConstruct(const T & object)
+{
+  static_assert(std::is_base_of_v<MooseObject, T>, "Not a MooseObject");
+
+  const auto type = static_cast<const MooseBase &>(object).type();
+  if (object.hasBase())
+  {
+    const auto & base = object.getBase();
+    if (base != "MooseMesh" && base != "RelationshipManager")
+      mooseError("Copy construction of ", type, " objects is not supported.");
+  }
+
+  _currently_constructing.push_back(&object.parameters());
+  auto cloned_object = std::make_unique<T>(object);
+  _currently_constructing.pop_back();
+
+  finalize(type, *cloned_object);
+
+  return cloned_object;
+}

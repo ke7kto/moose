@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -48,6 +48,9 @@ SideIntegralFunctorPostprocessorTempl<is_ad>::SideIntegralFunctorPostprocessorTe
     _partial_integral(getParam<bool>("restrict_to_functors_domain"))
 {
   _qp_integration = (getParam<MooseEnum>("functor_argument") == "qp");
+
+  checkFunctorSupportsSideIntegration<GenericReal<is_ad>>("functor", _qp_integration);
+  checkFunctorSupportsSideIntegration<GenericReal<is_ad>>("prefactor", _qp_integration);
 }
 
 template <bool is_ad>

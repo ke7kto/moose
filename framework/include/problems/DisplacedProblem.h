@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,6 +12,7 @@
 #include "SubProblem.h"
 #include "DisplacedSystem.h"
 #include "GeometricSearchData.h"
+#include "ThreadedNodeLoop.h"
 
 // libMesh
 #include "libmesh/equation_systems.h"
@@ -30,6 +31,7 @@ namespace libMesh
 {
 template <typename T>
 class NumericVector;
+class DofMap;
 }
 
 class DisplacedProblem : public SubProblem
@@ -53,11 +55,17 @@ public:
   }
   MooseMesh & refMesh();
 
-  DisplacedSystem & nlSys(const unsigned int sys_num);
+  DisplacedSystem & solverSys(const unsigned int sys_num);
   DisplacedSystem & auxSys() { return *_displaced_aux; }
 
   virtual const SystemBase & systemBaseNonlinear(const unsigned int sys_num) const override;
   virtual SystemBase & systemBaseNonlinear(const unsigned int sys_num) override;
+
+  virtual const SystemBase & systemBaseLinear(const unsigned int sys_num) const override;
+  virtual SystemBase & systemBaseLinear(const unsigned int sys_num) override;
+
+  virtual const SystemBase & systemBaseSolver(const unsigned int sys_num) const override;
+  virtual SystemBase & systemBaseSolver(const unsigned int sys_num) override;
 
   virtual const SystemBase & systemBaseAuxiliary() const override { return *_displaced_aux; }
   virtual SystemBase & systemBaseAuxiliary() override { return *_displaced_aux; }
@@ -76,8 +84,13 @@ public:
   void bumpAllQRuleOrder(Order order, SubdomainID block);
 
   virtual void init() override;
-  virtual bool nlConverged(const unsigned int nl_sys_num) override;
+  virtual bool solverSystemConverged(const unsigned int solver_sys_num) override;
   virtual unsigned int nlSysNum(const NonlinearSystemName & nl_sys_name) const override;
+  virtual unsigned int linearSysNum(const LinearSystemName & sys_name) const override;
+  virtual unsigned int solverSysNum(const SolverSystemName & sys_name) const override;
+
+  /// Get the time integrators from the problem
+  void addTimeIntegrator();
 
   /**
    * Allocate vectors and save old solutions into them.
@@ -90,17 +103,22 @@ public:
   virtual void restoreOldSolutions();
 
   /**
+   * Copy the provided solution into the displaced auxiliary system
+   */
+  void syncAuxSolution(const NumericVector<Number> & aux_soln);
+
+  /**
    * Copy the solutions on the undisplaced systems to the displaced systems.
    */
-  virtual void syncSolutions();
+  void syncSolutions();
 
   /**
    * Synchronize the solutions on the displaced systems to the given solutions. The nonlinear
    * solutions argument is a map from the nonlinear system number to the solution that we want to
    * set that nonlinear system's solution to
    */
-  virtual void syncSolutions(const std::map<unsigned int, const NumericVector<Number> *> & nl_solns,
-                             const NumericVector<Number> & aux_soln);
+  void syncSolutions(const std::map<unsigned int, const NumericVector<Number> *> & nl_solns,
+                     const NumericVector<Number> & aux_soln);
 
   /**
    * Copy the solutions on the undisplaced systems to the displaced systems and
@@ -178,7 +196,7 @@ public:
   //
   // Adaptivity /////
   virtual void initAdaptivity();
-  virtual void meshChanged() override;
+  void meshChanged(bool contract_mesh, bool clean_refinement_flags);
 
   // reinit /////
   virtual void prepare(const Elem * elem, const THREAD_ID tid) override;
@@ -206,10 +224,7 @@ public:
   virtual void reinitElemPhys(const Elem * elem,
                               const std::vector<Point> & phys_points_in_elem,
                               const THREAD_ID tid) override;
-  virtual void reinitElemFace(const Elem * elem,
-                              unsigned int side,
-                              BoundaryID bnd_id,
-                              const THREAD_ID tid) override;
+  virtual void reinitElemFace(const Elem * elem, unsigned int side, const THREAD_ID tid) override;
   virtual void reinitNode(const Node * node, const THREAD_ID tid) override;
   virtual void reinitNodeFace(const Node * node, BoundaryID bnd_id, const THREAD_ID tid) override;
   virtual void reinitNodes(const std::vector<dof_id_type> & nodes, const THREAD_ID tid) override;
@@ -265,14 +280,14 @@ public:
   virtual void addJacobianBlockTags(SparseMatrix<Number> & jacobian,
                                     unsigned int ivar,
                                     unsigned int jvar,
-                                    const DofMap & dof_map,
+                                    const libMesh::DofMap & dof_map,
                                     std::vector<dof_id_type> & dof_indices,
                                     const std::set<TagID> & tags,
                                     const THREAD_ID tid);
   void addJacobianBlockNonlocal(SparseMatrix<Number> & jacobian,
                                 unsigned int ivar,
                                 unsigned int jvar,
-                                const DofMap & dof_map,
+                                const libMesh::DofMap & dof_map,
                                 const std::vector<dof_id_type> & idof_indices,
                                 const std::vector<dof_id_type> & jdof_indices,
                                 const std::set<TagID> & tags,
@@ -280,7 +295,7 @@ public:
   virtual void addJacobianNeighbor(SparseMatrix<Number> & jacobian,
                                    unsigned int ivar,
                                    unsigned int jvar,
-                                   const DofMap & dof_map,
+                                   const libMesh::DofMap & dof_map,
                                    std::vector<dof_id_type> & dof_indices,
                                    std::vector<dof_id_type> & neighbor_dof_indices,
                                    const std::set<TagID> & tags,
@@ -292,15 +307,15 @@ public:
   virtual void prepareFaceShapes(unsigned int var, const THREAD_ID tid) override;
   virtual void prepareNeighborShapes(unsigned int var, const THREAD_ID tid) override;
 
-  Assembly & assembly(const THREAD_ID tid, const unsigned int nl_sys_num) override;
-  const Assembly & assembly(const THREAD_ID tid, const unsigned int nl_sys_num) const override;
+  virtual Assembly & assembly(const THREAD_ID tid, const unsigned int sys_num) override;
+  virtual const Assembly & assembly(const THREAD_ID tid, const unsigned int sys_num) const override;
 
   // Geom Search /////
   virtual void updateGeomSearch(
       GeometricSearchData::GeometricSearchType type = GeometricSearchData::ALL) override;
   virtual GeometricSearchData & geomSearchData() override { return _geometric_search_data; }
 
-  virtual bool computingInitialResidual(const unsigned int nl_sys_num) const override;
+  virtual bool computingPreSMOResidual(const unsigned int nl_sys_num) const override;
 
   virtual void onTimestepBegin() override;
   virtual void onTimestepEnd() override;
@@ -333,28 +348,34 @@ public:
    */
   void undisplaceMesh();
 
-  LineSearch * getLineSearch() override;
+  virtual LineSearch * getLineSearch() override;
 
-  const CouplingMatrix * couplingMatrix(const unsigned int nl_sys_num) const override;
+  virtual const CouplingMatrix * couplingMatrix(const unsigned int nl_sys_num) const override;
 
-  bool haveDisplaced() const override final { return true; }
+  virtual bool haveDisplaced() const override final { return true; }
 
-  bool computingScalingJacobian() const override final;
+  virtual bool computingScalingJacobian() const override final;
 
-  bool computingScalingResidual() const override final;
+  virtual bool computingScalingResidual() const override final;
 
-  void initialSetup() override;
-  void timestepSetup() override;
-  void customSetup(const ExecFlagType & exec_type) override;
-  void residualSetup() override;
-  void jacobianSetup() override;
+  virtual void initialSetup() override;
+  virtual void timestepSetup() override;
+  virtual void customSetup(const ExecFlagType & exec_type) override;
+  virtual void residualSetup() override;
+  virtual void jacobianSetup() override;
 
   using SubProblem::haveADObjects;
-  void haveADObjects(bool have_ad_objects) override;
+  virtual void haveADObjects(bool have_ad_objects) override;
 
-  std::size_t numNonlinearSystems() const override;
+  virtual std::size_t numNonlinearSystems() const override;
 
-  unsigned int currentNlSysNum() const override;
+  virtual std::size_t numLinearSystems() const override;
+
+  virtual std::size_t numSolverSystems() const override;
+
+  virtual unsigned int currentNlSysNum() const override;
+
+  virtual unsigned int currentLinearSysNum() const override;
 
   virtual const std::vector<VectorTag> & currentResidualVectorTags() const override;
 
@@ -362,6 +383,8 @@ public:
   virtual bool haveFV() const override;
 
   virtual bool hasNonlocalCoupling() const override;
+  virtual bool checkNonlocalCouplingRequirement() const override;
+  virtual const libMesh::CouplingMatrix & nonlocalCouplingMatrix(const unsigned i) const override;
 
 protected:
   FEProblemBase & _mproblem;
@@ -371,7 +394,7 @@ protected:
   MooseMesh & _ref_mesh;
   std::vector<std::string> _displacements;
 
-  std::vector<std::unique_ptr<DisplacedSystem>> _displaced_nl;
+  std::vector<std::unique_ptr<DisplacedSystem>> _displaced_solver_systems;
   std::unique_ptr<DisplacedSystem> _displaced_aux;
 
   /// The nonlinear system solutions
@@ -384,35 +407,119 @@ protected:
 
   GeometricSearchData _geometric_search_data;
 
+  class UpdateDisplacedMeshThread : public ThreadedNodeLoop<NodeRange, NodeRange::const_iterator>
+  {
+  public:
+    UpdateDisplacedMeshThread(FEProblemBase & fe_problem, DisplacedProblem & displaced_problem);
+
+    UpdateDisplacedMeshThread(UpdateDisplacedMeshThread & x, Threads::split split);
+
+    virtual void onNode(NodeRange::const_iterator & nd) override;
+
+    void join(const UpdateDisplacedMeshThread & y)
+    {
+      if (y._has_displacement)
+        _has_displacement = true;
+    }
+
+    /**
+     * Whether the displaced mesh is modified by the latest call to operator()
+     */
+    bool hasDisplacement()
+    {
+      mooseAssert(!Threads::in_threads,
+                  "This function requires a MPI all-gathering operation that cannot be in a "
+                  "threaded scope.");
+      _ref_mesh.comm().max(_has_displacement);
+      return _has_displacement;
+    }
+
+  protected:
+    void init();
+
+    /// Diplaced problem
+    DisplacedProblem & _displaced_problem;
+    /// Original mesh
+    MooseMesh & _ref_mesh;
+    /// Solution vectors of the nonlinear systems on the displaced problem
+    const std::vector<const NumericVector<Number> *> & _nl_soln;
+    /// Solution vector of the auxliary system on the displaced problem
+    const NumericVector<Number> & _aux_soln;
+
+    // Solution vectors with expanded ghosting, for ReplicatedMesh or
+    // for DistributedMesh cases where the standard algebraic ghosting
+    // doesn't reach as far as the geometric ghosting
+    std::map<unsigned int,
+             std::pair<const NumericVector<Number> *, std::shared_ptr<NumericVector<Number>>>>
+        _sys_to_nonghost_and_ghost_soln;
+
+  private:
+    /// To locate the system numbers, variable numbers of all displacement variables
+    std::map<unsigned int, std::pair<std::vector<unsigned int>, std::vector<unsigned int>>>
+        _sys_to_var_num_and_direction;
+
+    /// A flag to be set by operator() for indicating whether the displaced mesh is
+    /// indeed modified
+    bool _has_displacement;
+  };
+
 private:
-  std::pair<bool, unsigned int>
-  determineNonlinearSystem(const std::string & var_name,
-                           bool error_if_not_found = false) const override;
+  virtual std::pair<bool, unsigned int>
+  determineSolverSystem(const std::string & var_name,
+                        bool error_if_not_found = false) const override;
 
   friend class UpdateDisplacedMeshThread;
   friend class Restartable;
 };
 
 inline DisplacedSystem &
-DisplacedProblem::nlSys(const unsigned int sys_num)
+DisplacedProblem::solverSys(const unsigned int sys_num)
 {
-  mooseAssert(sys_num < _displaced_nl.size(),
+  mooseAssert(sys_num < _displaced_solver_systems.size(),
               "System number greater than the number of nonlinear systems");
-  return *_displaced_nl[sys_num];
+  return *_displaced_solver_systems[sys_num];
 }
 
 inline const SystemBase &
 DisplacedProblem::systemBaseNonlinear(const unsigned int sys_num) const
 {
-  mooseAssert(sys_num < _displaced_nl.size(),
+  mooseAssert(sys_num < _displaced_solver_systems.size(),
               "System number greater than the number of nonlinear systems");
-  return *_displaced_nl[sys_num];
+  return *_displaced_solver_systems[sys_num];
 }
 
 inline SystemBase &
 DisplacedProblem::systemBaseNonlinear(const unsigned int sys_num)
 {
-  mooseAssert(sys_num < _displaced_nl.size(),
+  mooseAssert(sys_num < _displaced_solver_systems.size(),
               "System number greater than the number of nonlinear systems");
-  return *_displaced_nl[sys_num];
+  return *_displaced_solver_systems[sys_num];
+}
+
+inline const SystemBase &
+DisplacedProblem::systemBaseLinear(const unsigned int /*sys_num*/) const
+{
+  mooseError("Linear systems are not supported for displaced problems yet.");
+}
+
+inline SystemBase &
+DisplacedProblem::systemBaseLinear(const unsigned int /*sys_num*/)
+{
+  mooseError("Linear systems are not supported for displaced problems yet.");
+}
+
+inline const SystemBase &
+DisplacedProblem::systemBaseSolver(const unsigned int sys_num) const
+{
+  mooseAssert(sys_num < _displaced_solver_systems.size(),
+              "System number greater than the number of solver systems");
+  return *_displaced_solver_systems[sys_num];
+}
+
+inline SystemBase &
+DisplacedProblem::systemBaseSolver(const unsigned int sys_num)
+{
+  mooseAssert(sys_num < _displaced_solver_systems.size(),
+              "System number greater than the number of solver systems");
+  return *_displaced_solver_systems[sys_num];
 }

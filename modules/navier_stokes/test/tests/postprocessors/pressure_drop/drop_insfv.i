@@ -140,13 +140,13 @@ velocity_interp_method='rc'
     type = INSFVInletVelocityBC
     boundary = 'bottom'
     variable = u
-    function = 0
+    functor = 0
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'bottom'
     variable = v
-    function = 1
+    functor = 1
   []
   [noslip-u]
     type = INSFVNoSlipWallBC
@@ -255,7 +255,7 @@ velocity_interp_method='rc'
   []
   [sum_drops]
     type = ParsedPostprocessor
-    function = 'pdrop_mid1 + pdrop_mid2 + pdrop_mid3'
+    expression = 'pdrop_mid1 + pdrop_mid2 + pdrop_mid3'
     pp_names = 'pdrop_mid1 pdrop_mid2 pdrop_mid3'
   []
 

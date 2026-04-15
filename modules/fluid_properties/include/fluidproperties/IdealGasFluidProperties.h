@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,22 +27,29 @@ public:
   IdealGasFluidProperties(const InputParameters & parameters);
   virtual ~IdealGasFluidProperties();
 
+  using SinglePhaseFluidProperties::cp_from_p_T;
+  using SinglePhaseFluidProperties::cv_from_p_T;
+  using SinglePhaseFluidProperties::e_from_p_T;
+  using SinglePhaseFluidProperties::k_from_p_T;
+  using SinglePhaseFluidProperties::mu_from_p_T;
+  using SinglePhaseFluidProperties::s_from_p_T;
+
   virtual Real p_from_v_e(Real v, Real e) const override;
   virtual ADReal p_from_v_e(const ADReal & v, const ADReal & e) const override;
   virtual void p_from_v_e(Real v, Real e, Real & p, Real & dp_dv, Real & dp_de) const override;
-  virtual void p_from_v_e(const DualReal & v,
-                          const DualReal & e,
-                          DualReal & p,
-                          DualReal & dp_dv,
-                          DualReal & dp_de) const override;
+  virtual void p_from_v_e(const ADReal & v,
+                          const ADReal & e,
+                          ADReal & p,
+                          ADReal & dp_dv,
+                          ADReal & dp_de) const override;
   virtual Real T_from_v_e(Real v, Real e) const override;
   virtual ADReal T_from_v_e(const ADReal & v, const ADReal & e) const override;
   virtual void T_from_v_e(Real v, Real e, Real & T, Real & dT_dv, Real & dT_de) const override;
-  virtual void T_from_v_e(const DualReal & v,
-                          const DualReal & e,
-                          DualReal & T,
-                          DualReal & dT_dv,
-                          DualReal & dT_de) const override;
+  virtual void T_from_v_e(const ADReal & v,
+                          const ADReal & e,
+                          ADReal & T,
+                          ADReal & dT_dv,
+                          ADReal & dT_de) const override;
   virtual Real c_from_v_e(Real v, Real e) const override;
   virtual ADReal c_from_v_e(const ADReal & v, const ADReal & e) const override;
   virtual void c_from_v_e(Real v, Real e, Real & c, Real & dc_dv, Real & dc_de) const override;
@@ -69,11 +76,11 @@ public:
   virtual ADReal rho_from_p_T(const ADReal & p, const ADReal & T) const override;
   virtual void
   rho_from_p_T(Real p, Real T, Real & rho, Real & drho_dp, Real & drho_dT) const override;
-  virtual void rho_from_p_T(const DualReal & p,
-                            const DualReal & T,
-                            DualReal & rho,
-                            DualReal & drho_dp,
-                            DualReal & drho_dT) const override;
+  virtual void rho_from_p_T(const ADReal & p,
+                            const ADReal & T,
+                            ADReal & rho,
+                            ADReal & drho_dp,
+                            ADReal & drho_dT) const override;
   virtual Real e_from_p_rho(Real p, Real rho) const override;
   virtual ADReal e_from_p_rho(const ADReal & p, const ADReal & rho) const override;
   virtual void
@@ -128,8 +135,14 @@ public:
   virtual Real c_from_p_T(Real p, Real T) const override;
   virtual ADReal c_from_p_T(const ADReal & p, const ADReal & T) const override;
   virtual void c_from_p_T(Real /*p*/, Real T, Real & c, Real & dc_dp, Real & dc_dT) const override;
+  virtual Real beta_from_p_T(Real p, Real T) const override;
+  virtual ADReal beta_from_p_T(const ADReal & p, const ADReal & T) const override;
+  virtual void
+  beta_from_p_T(Real p, Real T, Real & beta, Real & dbeta_dp, Real & dbeta_dT) const override;
 
   virtual Real pp_sat_from_p_T(Real /*p*/, Real /*T*/) const override;
+
+  Real referenceSpecificInternalEnergy() const { return _e_ref; }
 
   // Methods used by Navier-Stokes module
   virtual Real gamma() const { return _gamma; };
@@ -141,6 +154,8 @@ protected:
   const Real & _gamma;
   /// molar mass
   const Real & _molar_mass;
+  /// Reference specific internal energy
+  const Real & _e_ref;
 
   /// Specific gas constant (R / molar mass)
   const Real _R_specific;

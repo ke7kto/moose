@@ -28,12 +28,12 @@ rho = 1.1
 
     inlet_boundaries = 'left'
     momentum_inlet_types = 'fixed-velocity'
-    momentum_inlet_function = '1 0'
+    momentum_inlet_functors = '1 0'
     wall_boundaries = 'top bottom'
     momentum_wall_types = 'slip slip'
     outlet_boundaries = 'right'
     momentum_outlet_types = 'fixed-pressure'
-    pressure_function = '0'
+    pressure_functors = '0'
   []
 []
 
@@ -56,7 +56,6 @@ rho = 1.1
 [Outputs]
   exodus = true
   csv = true
-
   [restart]
     type = Checkpoint
     additional_execute_on = 'FINAL'

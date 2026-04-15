@@ -18,7 +18,7 @@
   [temperature]
   []
   [temperature_adjoint]
-    nl_sys = adjoint
+    solver_sys = adjoint
   []
 []
 
@@ -84,14 +84,27 @@
   []
 []
 
+[Preconditioning]
+  [nl0]
+    type = SMP
+    nl_sys = 'nl0'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
+  []
+  [adjoint]
+    type = SMP
+    nl_sys = 'adjoint'
+    petsc_options_iname = '-pc_type'
+    petsc_options_value = 'lu'
+  []
+[]
+
 [Executioner]
   type = SteadyAndAdjoint
   forward_system = nl0
   adjoint_system = adjoint
   nl_rel_tol = 1e-12
   l_tol = 1e-12
-  petsc_options_iname = '-pc_type'
-  petsc_options_value = 'lu'
 []
 
 [VectorPostprocessors]
@@ -109,15 +122,16 @@
 [Reporters]
   [measure_data]
     type = OptimizationData
+    objective_name = objective_value
     variable = temperature
+    outputs = none
   []
   [point_source]
     type = ConstantReporter
     real_vector_names = 'x y z value'
     real_vector_values = '0.2 0.7 0.4;
                           0.2 0.56 1;
-                        '
-                         '  0 0 0;
+                          0 0 0;
                           -1000 120 500'
   []
 []

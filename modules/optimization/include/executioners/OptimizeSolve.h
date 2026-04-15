@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,9 @@
 #pragma once
 
 #include "SolveObject.h"
+
+#include "SolverParams.h"
+#include "PetscSupport.h"
 
 #include "ExecFlagEnum.h"
 #include <petsctao.h>
@@ -87,6 +90,9 @@ private:
   /// control optimization executioner output
   bool _verbose;
 
+  /// Use time step as the iteration counter for purposes of outputting
+  bool _output_opt_iters;
+
   ///@{
   /// count individual solves for output
   int _obj_iterate = 0;
@@ -111,6 +117,15 @@ private:
   std::vector<double> _cnorm_vec;
   /// step length per iteration
   std::vector<double> _xdiff_vec;
+
+  ///@{
+  /// These are needed to reset the petsc options for the optimization solve
+  /// using Moose::PetscSupport::petscSetOptions
+  /// This only sets the finite difference options, the other optimizeSolve
+  /// options are set-up in TAO using TaoSetFromOptions()
+  Moose::PetscSupport::PetscOptions _petsc_options;
+  SolverParams _solver_params;
+  ///@}
 
   /// Here is where we call tao and solve
   PetscErrorCode taoSolve();
@@ -158,7 +173,7 @@ private:
   /// Number of parameters being optimized
   dof_id_type _ndof;
 
-  /// Parameters (solution)
+  /// Parameters (solution) given to TAO
   std::unique_ptr<libMesh::PetscVector<Number>> _parameters;
 
   /// Hessian (matrix) - usually a matrix-free representation

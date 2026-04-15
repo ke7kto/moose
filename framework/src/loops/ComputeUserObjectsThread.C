@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -131,11 +131,8 @@ ComputeUserObjectsThread::onElement(const Elem * elem)
 
     // update the aux solution vector if writable coupled variables are used
     if (uo->hasWritableCoupledVariables())
-    {
-      Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
       for (auto * var : uo->getWritableCoupledVariables())
         var->insert(_aux_sys.solution());
-    }
   }
 
   for (auto & uo : _domain_objs)
@@ -172,7 +169,7 @@ ComputeUserObjectsThread::onBoundary(const Elem * elem,
   if (userobjs.size() == 0 && _domain_objs.size() == 0)
     return;
 
-  _fe_problem.reinitElemFace(elem, side, bnd_id, _tid);
+  _fe_problem.reinitElemFace(elem, side, _tid);
 
   // Reinitialize lower-dimensional variables for use in boundary Materials
   if (lower_d_elem)
@@ -181,7 +178,7 @@ ComputeUserObjectsThread::onBoundary(const Elem * elem,
   // Set up Sentinel class so that, even if reinitMaterialsFace() throws, we
   // still remember to swap back during stack unwinding.
   SwapBackSentinel sentinel(_fe_problem, &FEProblem::swapBackMaterialsFace, _tid);
-  _fe_problem.reinitMaterialsFace(_subdomain, _tid);
+  _fe_problem.reinitMaterialsFaceOnBoundary(bnd_id, elem->subdomain_id(), _tid);
   _fe_problem.reinitMaterialsBoundary(bnd_id, _tid);
 
   for (const auto & uo : userobjs)
@@ -219,13 +216,7 @@ ComputeUserObjectsThread::onInternalSide(const Elem * elem, unsigned int side)
   // Pointer to the neighbor we are currently working on.
   const Elem * neighbor = elem->neighbor_ptr(side);
 
-  // Get the global id of the element and the neighbor
-  const dof_id_type elem_id = elem->id(), neighbor_id = neighbor->id();
-
   if (_internal_side_objs.size() == 0 && _domain_objs.size() == 0)
-    return;
-  if (!((neighbor->active() && (neighbor->level() == elem->level()) && (elem_id < neighbor_id)) ||
-        (neighbor->level() < elem->level())))
     return;
 
   _fe_problem.prepareFace(elem, _tid);
@@ -249,6 +240,16 @@ ComputeUserObjectsThread::onInternalSide(const Elem * elem, unsigned int side)
       uo->preExecuteOnInternalSide();
       uo->executeOnInternalSide();
     }
+}
+
+void
+ComputeUserObjectsThread::onExternalSide(const Elem * elem, unsigned int side)
+{
+  // We are not initializing any materials here because objects that perform calculations should
+  // run onBoundary. onExternalSide should be used for mesh updates (e.g. adding/removing
+  // boundaries). Note that _current_elem / _current_side are not getting updated either.
+  for (auto & uo : _domain_objs)
+    uo->executeOnExternalSide(elem, side);
 }
 
 void
@@ -284,7 +285,7 @@ ComputeUserObjectsThread::onInterface(const Elem * elem, unsigned int side, Boun
   // still remember to swap back during stack unwinding.
 
   SwapBackSentinel face_sentinel(_fe_problem, &FEProblem::swapBackMaterialsFace, _tid);
-  _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
+  _fe_problem.reinitMaterialsFaceOnBoundary(bnd_id, elem->subdomain_id(), _tid);
   _fe_problem.reinitMaterialsBoundary(bnd_id, _tid);
 
   SwapBackSentinel neighbor_sentinel(_fe_problem, &FEProblem::swapBackMaterialsNeighbor, _tid);

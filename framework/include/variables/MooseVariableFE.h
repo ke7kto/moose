@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -35,7 +35,7 @@ typedef MooseVariableFE<RealEigenVector> ArrayMooseVariable;
  *
  * Each variable can compute nodal or elemental (at QPs) values.
  *
- * OutputType          OutputShape           OutputData
+ * OutputType          OutputShape           DofValue
  * ----------------------------------------------------
  * Real                Real                  Real
  * RealVectorValue     RealVectorValue       Real
@@ -77,8 +77,10 @@ public:
   using FieldVariableTestDivergence =
       typename MooseVariableField<OutputType>::FieldVariableTestDivergence;
 
-  using OutputData = typename MooseVariableField<OutputType>::OutputData;
-  using DoFValue = typename MooseVariableField<OutputType>::DoFValue;
+  using typename MooseVariableField<OutputType>::DofValue;
+  using typename MooseVariableField<OutputType>::DofValues;
+  using typename MooseVariableField<OutputType>::ADDofValue;
+  using typename MooseVariableField<OutputType>::ADDofValues;
 
   using FunctorArg = typename Moose::ADType<OutputType>::type;
   using typename Moose::FunctorBase<FunctorArg>::ValueType;
@@ -146,10 +148,7 @@ public:
 
   bool isNodal() const override { return _element_data->isNodal(); }
   bool hasDoFsOnNodes() const override { return _element_data->hasDoFsOnNodes(); }
-  FEContinuity getContinuity() const override { return _element_data->getContinuity(); };
-  Moose::VarFieldType fieldType() const override;
-  bool isArray() const override;
-  bool isVector() const override;
+  libMesh::FEContinuity getContinuity() const override { return _element_data->getContinuity(); };
   const Node * const & node() const { return _element_data->node(); }
   const dof_id_type & nodalDofIndex() const override { return _element_data->nodalDofIndex(); }
   virtual bool isNodalDefined() const override;
@@ -274,7 +273,7 @@ public:
   {
     return _element_data->vectorTagGradient(tag);
   }
-  const DoFValue & vectorTagDofValue(TagID tag) const override
+  const DofValues & vectorTagDofValue(TagID tag) const override
   {
     return _element_data->vectorTagDofValue(tag);
   }
@@ -362,6 +361,10 @@ public:
   {
     return _element_data->adGradSlnDot();
   }
+  const ADTemplateVariableCurl<OutputType> & adCurlSln() const override
+  {
+    return _element_data->adCurlSln();
+  }
 
   /// neighbor AD
   const ADTemplateVariableValue<OutputType> & adSlnNeighbor() const override
@@ -387,6 +390,10 @@ public:
   const ADTemplateVariableGradient<OutputType> & adGradSlnNeighborDot() const override
   {
     return _neighbor_data->adGradSlnDot();
+  }
+  const ADTemplateVariableCurl<OutputType> & adCurlSlnNeighbor() const override
+  {
+    return _neighbor_data->adCurlSln();
   }
 
   /// element dots
@@ -505,117 +512,111 @@ public:
 
   virtual void setNodalValue(const OutputType & value, unsigned int idx = 0) override;
 
-  virtual void setDofValue(const OutputData & value, unsigned int index) override;
+  virtual void setDofValue(const DofValue & value, unsigned int index) override;
 
   /**
    * Set local DOF values and evaluate the values on quadrature points
    */
-  virtual void setDofValues(const DenseVector<OutputData> & values) override;
-  virtual void setLowerDofValues(const DenseVector<OutputData> & values) override;
+  virtual void setDofValues(const DenseVector<DofValue> & values) override;
+  virtual void setLowerDofValues(const DenseVector<DofValue> & values) override;
 
   /**
    * Write a nodal value to the passed-in solution vector
    */
-  void insertNodalValue(NumericVector<Number> & residual, const OutputData & v);
+  void insertNodalValue(libMesh::NumericVector<libMesh::Number> & residual, const DofValue & v);
 
   /**
    * Get the value of this variable at given node
    */
-  OutputData getNodalValue(const Node & node) const;
+  DofValue getNodalValue(const Node & node) const;
   /**
    * Get the old value of this variable at given node
    */
-  OutputData getNodalValueOld(const Node & node) const;
+  DofValue getNodalValueOld(const Node & node) const;
   /**
    * Get the t-2 value of this variable at given node
    */
-  OutputData getNodalValueOlder(const Node & node) const;
+  DofValue getNodalValueOlder(const Node & node) const;
   /**
    * Get the current value of this variable on an element
    * @param[in] elem   Element at which to get value
    * @param[in] idx    Local index of this variable's element DoFs
    * @return Variable value
    */
-  OutputData getElementalValue(const Elem * elem, unsigned int idx = 0) const;
+  DofValue getElementalValue(const Elem * elem, unsigned int idx = 0) const;
   /**
    * Get the old value of this variable on an element
    * @param[in] elem   Element at which to get value
    * @param[in] idx    Local index of this variable's element DoFs
    * @return Variable value
    */
-  OutputData getElementalValueOld(const Elem * elem, unsigned int idx = 0) const;
+  DofValue getElementalValueOld(const Elem * elem, unsigned int idx = 0) const;
   /**
    * Get the older value of this variable on an element
    * @param[in] elem   Element at which to get value
    * @param[in] idx    Local index of this variable's element DoFs
    * @return Variable value
    */
-  OutputData getElementalValueOlder(const Elem * elem, unsigned int idx = 0) const;
+  DofValue getElementalValueOlder(const Elem * elem, unsigned int idx = 0) const;
 
   /**
    * Set the current local DOF values to the input vector
    */
-  virtual void insert(NumericVector<Number> & vector) override;
-  virtual void insertLower(NumericVector<Number> & vector) override;
+  virtual void insert(libMesh::NumericVector<libMesh::Number> & vector) override;
+  virtual void insertLower(libMesh::NumericVector<libMesh::Number> & vector) override;
 
   /**
    * Add the current local DOF values to the input vector
    */
-  virtual void add(NumericVector<Number> & vector) override;
+  virtual void add(libMesh::NumericVector<libMesh::Number> & vector) override;
 
   /**
    * Add passed in local DOF values onto the current solution
    */
-  void addSolution(const DenseVector<Number> & v);
+  void addSolution(const DenseVector<libMesh::Number> & v);
 
   /**
    * Add passed in local neighbor DOF values onto the current solution
    */
-  void addSolutionNeighbor(const DenseVector<Number> & v);
+  void addSolutionNeighbor(const DenseVector<libMesh::Number> & v);
 
-  const DoFValue & dofValue() const;
-  const DoFValue & dofValues() const override;
-  const DoFValue & dofValuesOld() const override;
-  const DoFValue & dofValuesOlder() const override;
-  const DoFValue & dofValuesPreviousNL() const override;
-  const DoFValue & dofValuesNeighbor() const override;
-  const DoFValue & dofValuesOldNeighbor() const override;
-  const DoFValue & dofValuesOlderNeighbor() const override;
-  const DoFValue & dofValuesPreviousNLNeighbor() const override;
-  const DoFValue & dofValuesDot() const override;
-  const DoFValue & dofValuesDotNeighbor() const override;
-  const DoFValue & dofValuesDotNeighborResidual() const;
-  const DoFValue & dofValuesDotOld() const override;
-  const DoFValue & dofValuesDotOldNeighbor() const override;
-  const DoFValue & dofValuesDotDot() const override;
-  const DoFValue & dofValuesDotDotNeighbor() const override;
-  const DoFValue & dofValuesDotDotNeighborResidual() const;
-  const DoFValue & dofValuesDotDotOld() const override;
-  const DoFValue & dofValuesDotDotOldNeighbor() const override;
-  const MooseArray<Number> & dofValuesDuDotDu() const override;
-  const MooseArray<Number> & dofValuesDuDotDuNeighbor() const override;
-  const MooseArray<Number> & dofValuesDuDotDotDu() const override;
-  const MooseArray<Number> & dofValuesDuDotDotDuNeighbor() const override;
+  const DofValues & dofValue() const;
+  const DofValues & dofValues() const override;
+  const DofValues & dofValuesOld() const override;
+  const DofValues & dofValuesOlder() const override;
+  const DofValues & dofValuesPreviousNL() const override;
+  const DofValues & dofValuesNeighbor() const override;
+  const DofValues & dofValuesOldNeighbor() const override;
+  const DofValues & dofValuesOlderNeighbor() const override;
+  const DofValues & dofValuesPreviousNLNeighbor() const override;
+  const DofValues & dofValuesDot() const override;
+  const DofValues & dofValuesDotNeighbor() const override;
+  const DofValues & dofValuesDotNeighborResidual() const;
+  const DofValues & dofValuesDotOld() const override;
+  const DofValues & dofValuesDotOldNeighbor() const override;
+  const DofValues & dofValuesDotDot() const override;
+  const DofValues & dofValuesDotDotNeighbor() const override;
+  const DofValues & dofValuesDotDotNeighborResidual() const;
+  const DofValues & dofValuesDotDotOld() const override;
+  const DofValues & dofValuesDotDotOldNeighbor() const override;
+  const MooseArray<libMesh::Number> & dofValuesDuDotDu() const override;
+  const MooseArray<libMesh::Number> & dofValuesDuDotDuNeighbor() const override;
+  const MooseArray<libMesh::Number> & dofValuesDuDotDotDu() const override;
+  const MooseArray<libMesh::Number> & dofValuesDuDotDotDuNeighbor() const override;
 
-  /**
-   * Return the AD dof values
-   */
-  const MooseArray<ADReal> & adDofValues() const override;
-
-  /**
-   * Return the AD neignbor dof values
-   */
-  const MooseArray<ADReal> & adDofValuesNeighbor() const override;
+  const ADDofValues & adDofValues() const override;
+  const ADDofValues & adDofValuesNeighbor() const override;
+  const ADDofValues & adDofValuesDot() const override;
 
   /**
    * Compute and store incremental change in solution at QPs based on increment_vec
    */
-  void computeIncrementAtQps(const NumericVector<Number> & increment_vec);
+  void computeIncrementAtQps(const libMesh::NumericVector<libMesh::Number> & increment_vec);
 
   /**
    * Compute and store incremental change at the current node based on increment_vec
    */
-  void computeIncrementAtNode(const NumericVector<Number> & increment_vec);
+  void computeIncrementAtNode(const libMesh::NumericVector<libMesh::Number> & increment_vec);
 
   /**
    * Compute the variable value at a point on an element
@@ -694,8 +695,8 @@ public:
     return _element_data->nodalValueArray(Moose::Older);
   }
 
-  const DoFValue & nodalVectorTagValue(TagID tag) const override;
-  const DoFValue & nodalMatrixTagValue(TagID tag) const override;
+  const DofValues & nodalVectorTagValue(TagID tag) const override;
+  const DofValues & nodalMatrixTagValue(TagID tag) const override;
 
   const typename Moose::ADType<OutputType>::type & adNodalValue() const;
 
@@ -709,6 +710,11 @@ public:
   virtual void meshChanged() override;
   virtual void residualSetup() override;
   virtual void jacobianSetup() override;
+
+  virtual void sizeMatrixTagData() override;
+
+  bool supportsFaceArg() const override final { return true; }
+  bool supportsElemSideQpArg() const override final { return true; }
 
 protected:
   usingMooseVariableFieldMembers;
@@ -831,17 +837,24 @@ private:
 };
 
 template <typename OutputType>
-inline const MooseArray<ADReal> &
+inline const typename MooseVariableFE<OutputType>::ADDofValues &
 MooseVariableFE<OutputType>::adDofValues() const
 {
   return _element_data->adDofValues();
 }
 
 template <typename OutputType>
-inline const MooseArray<ADReal> &
+inline const typename MooseVariableFE<OutputType>::ADDofValues &
 MooseVariableFE<OutputType>::adDofValuesNeighbor() const
 {
   return _neighbor_data->adDofValues();
+}
+
+template <typename OutputType>
+inline const typename MooseVariableFE<OutputType>::ADDofValues &
+MooseVariableFE<OutputType>::adDofValuesDot() const
+{
+  return _element_data->adDofValuesDot();
 }
 
 template <typename OutputType>
@@ -859,3 +872,49 @@ MooseVariableFE<OutputType>::setActiveTags(const std::set<TagID> & vtags)
   _neighbor_data->setActiveTags(vtags);
   _lower_data->setActiveTags(vtags);
 }
+
+// Declare all the specializations, as the template specialization declarations below must know
+template <>
+InputParameters MooseVariableFE<Real>::validParams();
+template <>
+InputParameters MooseVariableFE<RealVectorValue>::validParams();
+template <>
+InputParameters MooseVariableFE<RealEigenVector>::validParams();
+template <>
+RealEigenVector
+MooseVariableFE<RealEigenVector>::getValue(const Elem * elem,
+                                           const std::vector<std::vector<Real>> & phi) const;
+template <>
+RealVectorArrayValue MooseVariableFE<RealEigenVector>::getGradient(
+    const Elem * elem, const std::vector<std::vector<RealVectorValue>> & grad_phi) const;
+template <>
+void MooseVariableFE<RealEigenVector>::evaluateOnElement(const ElemQpArg &,
+                                                         const StateArg &,
+                                                         bool) const;
+template <>
+void MooseVariableFE<RealEigenVector>::evaluateOnElementSide(const ElemSideQpArg &,
+                                                             const StateArg &,
+                                                             bool) const;
+template <>
+typename MooseVariableFE<RealEigenVector>::ValueType
+MooseVariableFE<RealEigenVector>::evaluate(const ElemQpArg &, const StateArg &) const;
+template <>
+typename MooseVariableFE<RealEigenVector>::ValueType
+MooseVariableFE<RealEigenVector>::evaluate(const ElemSideQpArg &, const StateArg &) const;
+template <>
+typename MooseVariableFE<RealEigenVector>::GradientType
+MooseVariableFE<RealEigenVector>::evaluateGradient(const ElemQpArg &, const StateArg &) const;
+template <>
+typename MooseVariableFE<RealEigenVector>::GradientType
+MooseVariableFE<RealEigenVector>::evaluateGradient(const ElemSideQpArg &, const StateArg &) const;
+template <>
+typename MooseVariableFE<RealEigenVector>::DotType
+MooseVariableFE<RealEigenVector>::evaluateDot(const ElemQpArg &, const StateArg &) const;
+template <>
+typename MooseVariableFE<RealEigenVector>::DotType
+MooseVariableFE<RealEigenVector>::evaluateDot(const ElemSideQpArg &, const StateArg &) const;
+
+// Prevent implicit instantiation in other translation units where these classes are used
+extern template class MooseVariableFE<Real>;
+extern template class MooseVariableFE<RealVectorValue>;
+extern template class MooseVariableFE<RealEigenVector>;

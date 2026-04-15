@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -144,6 +144,11 @@ JsonSyntaxTree::setParams(InputParameters * params, bool search_match, nlohmann:
     std::string doc = params->getDocString(iter.first);
     MooseUtils::escape(doc);
     param_json["description"] = doc;
+
+    param_json["doc_unit"] = params->getDocUnit(iter.first);
+    param_json["doc_range"] =
+        params->isRangeChecked(iter.first) ? params->rangeCheckedFunction(iter.first) : "";
+
     param_json["controllable"] = params->isControllable(iter.first);
     param_json["deprecated"] = params->isParamDeprecated(iter.first);
     all_params[iter.first] = param_json;
@@ -209,16 +214,27 @@ JsonSyntaxTree::addParameters(const std::string & parent,
   }
   else if (params)
   {
-    if (params->isParamValid("_moose_base"))
-      json["moose_base"] = params->get<std::string>("_moose_base");
+    if (params->hasBase())
+      json["moose_base"] = params->getBase();
 
     json["parameters"] = all_params;
     json["syntax_path"] = path;
     json["parent_syntax"] = parent;
     json["description"] = params->getClassDescription();
-    auto label_pair = getObjectLabel(path);
-    json["label"] = label_pair.first;
-    json["register_file"] = label_pair.second;
+    // We do this for ActionComponents which are registered as Actions but
+    // dumped to the syntax tree as Objects
+    if (params->hasBase() && json["moose_base"] == "Action")
+    {
+      auto label_pair = getActionLabel(classname);
+      json["label"] = label_pair.first;
+      json["register_file"] = label_pair.second;
+    }
+    else
+    {
+      auto label_pair = getObjectLabel(path);
+      json["label"] = label_pair.first;
+      json["register_file"] = label_pair.second;
+    }
     if (lineinfo.isValid())
     {
       json["file_info"][lineinfo.file()] = lineinfo.line();
@@ -266,6 +282,15 @@ JsonSyntaxTree::buildOptions(const std::iterator_traits<InputParameters::iterato
   }
   {
     auto * enum_type = dynamic_cast<InputParameters::Parameter<std::vector<MooseEnum>> *>(val);
+    if (enum_type)
+    {
+      out_of_range_allowed = (enum_type->get())[0].isOutOfRangeAllowed();
+      options = (enum_type->get())[0].getRawNames();
+      docs = enum_type->get()[0].getItemDocumentation();
+    }
+  }
+  {
+    auto * enum_type = dynamic_cast<InputParameters::Parameter<std::vector<MultiMooseEnum>> *>(val);
     if (enum_type)
     {
       out_of_range_allowed = (enum_type->get())[0].isOutOfRangeAllowed();
@@ -359,10 +384,24 @@ JsonSyntaxTree::basicCppType(const std::string & cpp_type)
 
     s = "Array:" + basicCppType(t);
   }
+  else if (cpp_type.find("std::map") != std::string::npos ||
+           cpp_type.find("std::unordered_map") != std::string::npos)
+  {
+    // Get the template types
+    // Matches std::map< K , V [, ...] >
+    // and std::unordered_map< K , V [, ...] >
+    pcrecpp::RE r_map(
+        "^(?:std::)?(?:unordered_)?map\\s*<\\s*([^,>]+)\\s*,\\s*([^,>]+)(?:\\s*,.*)?\\s*>$");
+
+    // k and v hold the key and value types
+    std::string k, v;
+    r_map.FullMatch(cpp_type, &k, &v);
+
+    s = "Map:" + k + "->" + v;
+  }
   else if (cpp_type.find("MultiMooseEnum") != std::string::npos ||
            cpp_type.find("ExecFlagEnum") != std::string::npos ||
-           cpp_type.find("VectorPostprocessorName") != std::string::npos ||
-           cpp_type.find("std::map") != std::string::npos)
+           cpp_type.find("VectorPostprocessorName") != std::string::npos)
     s = "Array:String";
   else if (cpp_type.find("libMesh::Point") != std::string::npos)
     s = "Array:Real";

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,16 +9,8 @@
 
 #pragma once
 
-#include "MooseObject.h"
-#include "SetupInterface.h"
-#include "TransientInterface.h"
-#include "PostprocessorInterface.h"
-#include "UserObjectInterface.h"
-#include "Restartable.h"
-#include "MeshChangedInterface.h"
-#include "ScalarCoupleable.h"
+#include "FunctionBase.h"
 #include "MooseFunctor.h"
-#include "MooseADWrapper.h"
 #include "ChainedReal.h"
 
 // libMesh
@@ -34,15 +26,7 @@ class Point;
  * Base class for function objects.  Functions override value to supply a
  * value at a point.
  */
-class Function : public MooseObject,
-                 public SetupInterface,
-                 public TransientInterface,
-                 public PostprocessorInterface,
-                 public UserObjectInterface,
-                 public Restartable,
-                 public MeshChangedInterface,
-                 public ScalarCoupleable,
-                 public Moose::FunctorBase<Real>
+class Function : public Moose::FunctionBase, public Moose::FunctorBase<Real>
 {
 public:
   /**
@@ -137,18 +121,31 @@ public:
   auto timeDerivative(const U & t, const U & x, const U & y = 0, const U & z = 0) const;
   ///@}
 
-  // Not defined
+  /// Returns the integral of the function over its domain
   virtual Real integral() const;
 
-  // Not defined
+  /// Returns the average of the function over its domain
   virtual Real average() const;
 
+  /**
+   * Computes the time integral at a spatial point between two time values
+   *
+   * @param[in] t1  Beginning time value
+   * @param[in] t2  End time value
+   * @param[in] p   Spatial point
+   */
+  virtual Real timeIntegral(Real t1, Real t2, const Point & p) const;
+
   void timestepSetup() override;
-  void residualSetup() override;
-  void jacobianSetup() override;
-  void customSetup(const ExecFlagType & exec_type) override;
+  // We will only allow initialSetup() and timestepSetup() to be overriden
+  void residualSetup() override final;
+  void jacobianSetup() override final;
+  void customSetup(const ExecFlagType & exec_type) override final;
 
   bool hasBlocks(SubdomainID) const override { return true; }
+
+  bool supportsFaceArg() const override final { return true; }
+  bool supportsElemSideQpArg() const override final { return true; }
 
 private:
   using typename Moose::FunctorBase<Real>::ValueType;
@@ -206,7 +203,7 @@ template <typename U>
 auto
 Function::value(const U & t) const
 {
-  static const MooseADWrapper<Point, MooseIsADType<U>::value> p;
+  static const Moose::GenericType<Point, Moose::IsADType<U>::value> p;
   return value(t, p);
 }
 
@@ -214,7 +211,7 @@ template <typename U>
 auto
 Function::value(const U & t, const U & x, const U & y, const U & z) const
 {
-  MooseADWrapper<Point, MooseIsADType<U>::value> p(x, y, z);
+  Moose::GenericType<Point, Moose::IsADType<U>::value> p(x, y, z);
   return value(t, p);
 }
 
@@ -222,7 +219,7 @@ template <typename U>
 auto
 Function::timeDerivative(const U & t) const
 {
-  static const MooseADWrapper<Point, MooseIsADType<U>::value> p;
+  static const Moose::GenericType<Point, Moose::IsADType<U>::value> p;
   return timeDerivative(t, p);
 }
 
@@ -230,6 +227,6 @@ template <typename U>
 auto
 Function::timeDerivative(const U & t, const U & x, const U & y, const U & z) const
 {
-  MooseADWrapper<Point, MooseIsADType<U>::value> p(x, y, z);
+  Moose::GenericType<Point, Moose::IsADType<U>::value> p(x, y, z);
   return timeDerivative(t, p);
 }

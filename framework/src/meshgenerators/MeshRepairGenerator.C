@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,6 +37,15 @@ MeshRepairGenerator::validParams()
                         false,
                         "Create new blocks if multiple element types are present in a block");
 
+  params.addParam<bool>("merge_boundary_ids_with_same_name",
+                        false,
+                        "Merge boundaries if they have the same name but different boundary IDs");
+
+  params.addParam<bool>(
+      "renumber_contiguously",
+      false,
+      "Whether to renumber the elements of the mesh so the numbering is contiguous");
+
   return params;
 }
 
@@ -46,9 +55,11 @@ MeshRepairGenerator::MeshRepairGenerator(const InputParameters & parameters)
     _fix_overlapping_nodes(getParam<bool>("fix_node_overlap")),
     _node_overlap_tol(getParam<Real>("node_overlap_tol")),
     _fix_element_orientation(getParam<bool>("fix_elements_orientation")),
-    _elem_type_separation(getParam<bool>("separate_blocks_by_element_types"))
+    _elem_type_separation(getParam<bool>("separate_blocks_by_element_types")),
+    _boundary_id_merge(getParam<bool>("merge_boundary_ids_with_same_name"))
 {
-  if (!_fix_overlapping_nodes && !_fix_element_orientation && !_elem_type_separation)
+  if (!_fix_overlapping_nodes && !_fix_element_orientation && !_elem_type_separation &&
+      !_boundary_id_merge && !getParam<bool>("renumber_contiguously"))
     mooseError("No specific item to fix. Are any of the parameters misspelled?");
 }
 
@@ -73,7 +84,20 @@ MeshRepairGenerator::generate()
   if (_elem_type_separation)
     separateSubdomainsByElementType(mesh);
 
-  mesh->set_isnt_prepared();
+  // Assign a single boundary ID to boundaries that have the same name
+  if (_boundary_id_merge)
+    MooseMeshUtils::mergeBoundaryIDsWithSameName(*mesh);
+
+  // Renumber the mesh despite any mesh flag
+  if (getParam<bool>("renumber_contiguously"))
+  {
+    const auto prev_status = mesh->allow_renumbering();
+    mesh->allow_renumbering(true);
+    mesh->renumber_nodes_and_elements();
+    mesh->allow_renumbering(prev_status);
+  }
+
+  mesh->unset_is_prepared();
   return mesh;
 }
 
@@ -136,7 +160,7 @@ MeshRepairGenerator::fixOverlappingNodes(std::unique_ptr<MeshBase> & mesh) const
 
             // Coordinates are the same but it's not the same node
             // Replace the node in the element
-            const_cast<Elem *>(elem)->set_node(elem->get_node_index(&elem_node)) = node;
+            const_cast<Elem *>(elem)->set_node(elem->get_node_index(&elem_node), node);
             nodes_removed.insert(elem_node.id());
 
             num_fixed_nodes++;

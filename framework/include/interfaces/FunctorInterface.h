@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -31,6 +31,13 @@ public:
   static InputParameters validParams();
 
   FunctorInterface(const MooseObject * moose_object);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  FunctorInterface(const FunctorInterface & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
 
   /**
    * Helper to look up a functor name through the input parameter keys
@@ -118,6 +125,25 @@ protected:
    */
   Moose::ElemArg makeElemArg(const Elem * elem, bool correct_skewnewss = false) const;
 
+  /**
+   * Throws error if the functor does not support the requested side integration
+   *
+   * @param[in] name  Name of functor or functor parameter
+   * @param[in] qp_integration  True if performing qp integration, false if face info
+   */
+  template <typename T>
+  void checkFunctorSupportsSideIntegration(const std::string & name, bool qp_integration);
+
+  /**
+   * Retrieves a functor from the subproblem. This method also leverages the ability to create
+   * default functors if the user passed an integer or real in the input file
+   * @param name The name of the functor to retrieve. This should match the actual name of the
+   * functor created in the input file
+   * @return The functor
+   */
+  template <typename T>
+  const Moose::Functor<T> & getFunctorByName(const std::string & name);
+
 private:
   /**
    * Retrieves a functor from the passed-in subproblem. This method also leverages the ability to
@@ -196,6 +222,14 @@ FunctorInterface::getFunctor(const std::string & name)
 
 template <typename T>
 const Moose::Functor<T> &
+FunctorInterface::getFunctorByName(const std::string & name)
+{
+  mooseAssert(_fi_subproblem, "This must be non-null");
+  return getFunctorByName<T>(name, *_fi_subproblem, _fi_tid);
+}
+
+template <typename T>
+const Moose::Functor<T> &
 FunctorInterface::getFunctorByName(const std::string & name,
                                    SubProblem & subproblem,
                                    const THREAD_ID tid)
@@ -220,4 +254,26 @@ const Moose::Functor<T> *
 FunctorInterface::defaultFunctor(const std::string & /*name*/)
 {
   return nullptr;
+}
+
+template <typename T>
+void
+FunctorInterface::checkFunctorSupportsSideIntegration(const std::string & name, bool qp_integration)
+{
+  const std::string functor_name = deduceFunctorName(name);
+  const auto & functor = getFunctor<T>(name);
+  if (qp_integration)
+  {
+    if (!functor.supportsElemSideQpArg())
+      mooseError("Quadrature point integration was requested, but the functor '",
+                 functor_name,
+                 "' does not support this.");
+  }
+  else
+  {
+    if (!functor.supportsFaceArg())
+      mooseError("Face info integration was requested, but the functor '",
+                 functor_name,
+                 "' does not support this.");
+  }
 }

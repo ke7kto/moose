@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -43,8 +43,24 @@ ReactorMeshParams::validParams()
   params.addParam<std::vector<unsigned int>>(
       "axial_mesh_intervals",
       "Number of elements in the Z direction for each axial region");
+  params.addParam<bool>("region_id_as_block_name", false, "Set block names based on region id");
+  params.addParam<bool>(
+      "flexible_assembly_stitching",
+      false,
+      "Use FlexiblePatternGenerator for stitching dissimilar assemblies together");
+  params.addRangeCheckedParam<unsigned int>(
+      "num_sectors_at_flexible_boundary",
+      6,
+      "num_sectors_at_flexible_boundary>2",
+      "Number of sectors to use at assembly boundary interface when flexible patterning is used "
+      "(Defaults to 6)");
   params.addClassDescription("This ReactorMeshParams object acts as storage for persistent "
                              "information about the reactor geometry.");
+
+  // Declare that this generator has a generateData method
+  MeshGenerator::setHasGenerateData(params);
+  // Declare that this generator has a generateCSG method
+  MeshGenerator::setHasGenerateCSG(params);
   return params;
 }
 
@@ -54,7 +70,7 @@ ReactorMeshParams::ReactorMeshParams(const InputParameters & parameters)
     _geom(getParam<MooseEnum>("geom")),
     _assembly_pitch(getParam<Real>("assembly_pitch"))
 {
-  if (int(_dim) == 2)
+  if ((unsigned int)(_dim) == 2)
   {
     std::vector<std::string> invalid_params = {
         "axial_regions", "axial_mesh_intervals", "top_boundary_id", "bottom_boundary_id"};
@@ -74,10 +90,27 @@ ReactorMeshParams::ReactorMeshParams(const InputParameters & parameters)
     this->declareMeshProperty(RGMB::axial_mesh_intervals, _axial_mesh_intervals);
   }
 
-  this->declareMeshProperty(RGMB::mesh_dimensions, int(_dim));
+  this->declareMeshProperty(RGMB::mesh_dimensions, (unsigned int)std::stoul(_dim));
   this->declareMeshProperty(RGMB::mesh_geometry, std::string(_geom));
   this->declareMeshProperty(RGMB::assembly_pitch, _assembly_pitch);
-  this->declareMeshProperty("name_id_map", _name_id_map);
+  this->declareMeshProperty(RGMB::region_id_as_block_name,
+                            getParam<bool>(RGMB::region_id_as_block_name));
+
+  const bool flexible_assembly_stitching = getParam<bool>(RGMB::flexible_assembly_stitching);
+  this->declareMeshProperty(RGMB::flexible_assembly_stitching, flexible_assembly_stitching);
+  if (flexible_assembly_stitching)
+    this->declareMeshProperty(RGMB::num_sectors_flexible_stitching,
+                              getParam<unsigned int>("num_sectors_at_flexible_boundary"));
+  if (parameters.isParamSetByUser("num_sectors_at_flexible_boundary") &&
+      !flexible_assembly_stitching)
+    paramWarning(
+        "num_sectors_at_flexible_boundary",
+        "This parameter is only relevant when ReactorMeshParams/flexible_assembly_stitching is set "
+        "to true. This value will be ignored");
+
+  // Option to bypass mesh generation depends on whether the current generator is in data only mode
+  bool bypass_meshgen = isDataOnly();
+  this->declareMeshProperty(RGMB::bypass_meshgen, bypass_meshgen);
 
   if (isParamValid("top_boundary_id"))
   {
@@ -106,6 +139,20 @@ ReactorMeshParams::ReactorMeshParams(const InputParameters & parameters)
 std::unique_ptr<MeshBase>
 ReactorMeshParams::generate()
 {
+  // If mesh generation is requested and bypass_mesh is true, return a null mesh. generate()
+  // mesh should not be called with this option specified
+  if (getMeshProperty<bool>(RGMB::bypass_meshgen))
+  {
+    auto null_mesh = nullptr;
+    return null_mesh;
+  }
   auto mesh = buildMeshBaseObject();
   return dynamic_pointer_cast<MeshBase>(mesh);
+}
+
+std::unique_ptr<CSG::CSGBase>
+ReactorMeshParams::generateCSG()
+{
+  // This MeshGenerator does not produce a mesh, therefore return an empty CSGBase object
+  return std::make_unique<CSG::CSGBase>();
 }

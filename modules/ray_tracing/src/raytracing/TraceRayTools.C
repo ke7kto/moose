@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -33,6 +33,8 @@
 #include "libmesh/mesh.h"
 #include "libmesh/remote_elem.h"
 #include "libmesh/tensor_value.h"
+
+using namespace libMesh;
 
 namespace TraceRayTools
 {
@@ -129,7 +131,7 @@ findPointNeighbors(
   // Helper for avoiding extraneous allocation when building side elements
   std::unique_ptr<const Elem> side_helper;
 
-  auto contains_point = [&point, &info, &side_helper](const Elem * const candidate)
+  auto contains_point = [&point, &info, &side_helper, &elem](const Elem * const candidate)
   {
     if (candidate->contains_point(point))
     {
@@ -141,7 +143,8 @@ findPointNeighbors(
           sides.push_back(s);
       }
 
-      if (!sides.empty())
+      // Dont add the local element
+      if (!sides.empty() && candidate != elem)
       {
         info.emplace_back(candidate, std::move(sides));
         return true;
@@ -167,7 +170,7 @@ findPointNeighbors(
   std::set<const Elem *> point_neighbors;
   elem->find_point_neighbors(point, point_neighbors);
   for (const auto & point_neighbor : point_neighbors)
-    if (!neighbor_set.contains(point_neighbor))
+    if (!neighbor_set.contains(point_neighbor) && point_neighbor != elem)
       mooseError("Missed a point neighbor");
 #endif
 }
@@ -241,7 +244,8 @@ findNodeNeighbors(
   elem->find_point_neighbors(*node, point_neighbors);
   for (const auto & point_neighbor : point_neighbors)
     for (const auto & neighbor_node : point_neighbor->node_ref_range())
-      if (node == &neighbor_node && !neighbor_set.contains(point_neighbor))
+      if (node == &neighbor_node && !neighbor_set.contains(point_neighbor) &&
+          point_neighbor != elem)
         mooseError("Missed a node neighbor");
 #endif
 }

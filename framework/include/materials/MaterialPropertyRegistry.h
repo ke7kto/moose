@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -84,6 +84,11 @@ public:
    * @return An iterator range to the property ID to name map
    */
   auto idsToNamesRange() const { return libMesh::SimpleRange(idsToNamesBegin(), idsToNamesEnd()); }
+
+  /**
+   * @return The number of registered properties
+   */
+  std::size_t size() const { return _id_to_name.size(); }
 
 private:
   /// Map of material property name -> material property id

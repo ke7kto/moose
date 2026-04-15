@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -131,7 +131,7 @@ CreateDisplacedProblemAction::act()
             "We should be adding geometric rms so early that we haven't set our MeshBase yet");
 
       _mesh->allowRemoteElementRemoval(false);
-      // Displaced mesh should not exist yet
+      mooseAssert(!_displaced_mesh, "Displaced mesh should not exist yet");
     }
 
     if (_current_task == "add_algebraic_rm")
@@ -144,7 +144,7 @@ CreateDisplacedProblemAction::act()
       for (const auto i : make_range(_problem->numNonlinearSystems()))
       {
         auto & undisplaced_nl = _problem->getNonlinearSystemBase(i);
-        auto & displaced_nl = displaced_problem_ptr->nlSys(i);
+        auto & displaced_nl = displaced_problem_ptr->solverSys(i);
         // Note the "to" system doesn't actually matter much - the GF will
         // get added to both systems on the receiving side
         addProxyAlgebraicRelationshipManagers(undisplaced_nl, displaced_nl);
@@ -163,7 +163,7 @@ CreateDisplacedProblemAction::act()
       addProxyAlgebraicRelationshipManagers(undisplaced_aux, displaced_aux);
       addProxyAlgebraicRelationshipManagers(displaced_aux, undisplaced_aux);
 
-      // Add geoemtric ghosting (which only acts through the mesh) through the single auxiliary
+      // Add geometric ghosting (which only acts through the mesh) through the single auxiliary
       // system as opposed to duplicating the effort through potentially multiple nonlinear systems
       addProxyGeometricRelationshipManagers(undisplaced_aux, displaced_aux);
       addProxyGeometricRelationshipManagers(displaced_aux, undisplaced_aux);

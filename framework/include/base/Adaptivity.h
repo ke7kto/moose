@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,6 +23,8 @@
 
 // libMesh
 #include "libmesh/mesh_refinement.h"
+#include "libmesh/hp_coarsentest.h"
+#include "libmesh/sibling_coupling.h"
 
 class FEProblemBase;
 class MooseMesh;
@@ -30,7 +32,7 @@ class DisplacedProblem;
 template <typename>
 class MooseVariableFE;
 typedef MooseVariableFE<Real> MooseVariable;
-typedef MooseVariableFE<VectorValue<Real>> VectorMooseVariable;
+typedef MooseVariableFE<libMesh::VectorValue<Real>> VectorMooseVariable;
 class MooseEnum;
 class MultiMooseEnum;
 
@@ -41,6 +43,16 @@ class SystemNorm;
 class ErrorVector;
 class ErrorEstimator;
 }
+
+/**
+ * Defines types of mesh adaptivity options available
+ */
+enum class AdaptivityType
+{
+  H = 0,
+  P = 1,
+  HP = 2
+};
 
 /**
  * Takes care of everything related to mesh adaptivity
@@ -59,8 +71,11 @@ public:
    * adaptivity cycles to perform before the simulation starts and steps indicates the
    * number of adaptivity cycles to run during a steady (not transient) solve.  steps is not used
    * for transient or eigen solves.
+   * p_refinement indicates whether the refinement will be p-refinement or h-refinement.
    */
-  void init(unsigned int steps, unsigned int initial_steps);
+  void init(const unsigned int steps,
+            const unsigned int initial_steps,
+            const AdaptivityType adaptivity_type);
 
   /**
    * Set adaptivity parameter
@@ -82,7 +97,7 @@ public:
   /**
    * Set the error norm (FIXME: improve description)
    */
-  void setErrorNorm(SystemNorm & sys_norm);
+  void setErrorNorm(libMesh::SystemNorm & sys_norm);
 
   /**
    *
@@ -130,15 +145,14 @@ public:
   void setRecomputeMarkersFlag(const bool flag) { _recompute_markers_during_cycles = flag; }
 
   /**
-   * Indicate whether the kind of adaptivity we're doing is p-refinement
-   * @param doing_p_refinement Whether we're doing p-refinement
-   * @param disable_p_refinement_for_families Families to disable p-refinement for
-   */
-  void doingPRefinement(bool doing_p_refinement,
-                        const MultiMooseEnum & disable_p_refinement_for_families);
-
-  /**
    * Adapts the mesh based on the error estimator used
+   *
+   * This method calls DisplacedProblem::undisplaceMesh, so it is necessary to
+   * update the displaced problem's mesh (undoing the undisplacement) before any
+   * objects relying on the displaced mesh are executed. However, projection of
+   * the displacement variables is required before doing so; therefore, the
+   * DisplacedProblem::updateMesh call needs to happen outside of this method.
+   * @see FEProblemBase::adaptMesh and FEProblemMase::meshChangedHelper.
    *
    * @return a boolean that indicates whether the mesh was changed
    */
@@ -241,7 +255,7 @@ public:
    *
    * @param indicator_field The name of the field to get an ErrorVector for.
    */
-  ErrorVector & getErrorVector(const std::string & indicator_field);
+  libMesh::ErrorVector & getErrorVector(const std::string & indicator_field);
 
   /**
    * Update the ErrorVectors that have been requested through calls to getErrorVector().
@@ -262,16 +276,16 @@ protected:
   /// on/off flag reporting if the adaptivity system has been initialized
   bool _initialized;
   /// A mesh refinement object to be used either with initial refinement or with Adaptivity.
-  std::unique_ptr<MeshRefinement> _mesh_refinement;
+  std::unique_ptr<libMesh::MeshRefinement> _mesh_refinement;
   /// Error estimator to be used by the apps.
-  std::unique_ptr<ErrorEstimator> _error_estimator;
+  std::unique_ptr<libMesh::ErrorEstimator> _error_estimator;
   /// Error vector for use with the error estimator.
-  std::unique_ptr<ErrorVector> _error;
+  std::unique_ptr<libMesh::ErrorVector> _error;
 
   std::shared_ptr<DisplacedProblem> _displaced_problem;
 
   /// A mesh refinement object for displaced mesh
-  std::unique_ptr<MeshRefinement> _displaced_mesh_refinement;
+  std::unique_ptr<libMesh::MeshRefinement> _displaced_mesh_refinement;
 
   /// the number of adaptivity steps to do at the beginning of simulation
   unsigned int _initial_steps;
@@ -300,6 +314,9 @@ protected:
   /// Name of the marker variable if using the new adaptivity system
   std::string _marker_variable_name;
 
+  /// Type of mesh adaptivity
+  AdaptivityType _adaptivity_type;
+
   /// Name of the initial marker variable if using the new adaptivity system
   std::string _initial_marker_variable_name;
 
@@ -309,10 +326,15 @@ protected:
   /// Whether or not to recompute markers during adaptivity cycles
   bool _recompute_markers_during_cycles;
 
-  /// Stores pointers to ErrorVectors associated with indicator field names
-  std::map<std::string, std::unique_ptr<ErrorVector>> _indicator_field_to_error_vector;
+  /// Sibling coupling object for HP adaptivity for evaluating data on elements' siblings in
+  /// HPCoarsenTest
+  std::unique_ptr<libMesh::SiblingCoupling> _sibling_coupling;
 
-  bool _p_refinement_flag = false;
+  /// Object for HP adaptivity
+  std::unique_ptr<libMesh::HPCoarsenTest> _hp_coarsen_test;
+
+  /// Stores pointers to ErrorVectors associated with indicator field names
+  std::map<std::string, std::unique_ptr<libMesh::ErrorVector>> _indicator_field_to_error_vector;
 };
 
 template <typename T>

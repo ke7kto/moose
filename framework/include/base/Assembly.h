@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,6 +13,7 @@
 #include "MooseArray.h"
 #include "MooseTypes.h"
 #include "MooseVariableFE.h"
+#include "MoosePassKey.h"
 #include "ArbitraryQuadrature.h"
 
 #include "libmesh/dense_vector.h"
@@ -22,8 +23,6 @@
 #include "libmesh/fe_base.h"
 #include "libmesh/numeric_vector.h"
 #include "libmesh/elem_side_builder.h"
-
-#include "DualRealOps.h"
 
 #include <unordered_map>
 
@@ -45,6 +44,7 @@ template <typename T>
 class NumericVector;
 template <typename T>
 class SparseMatrix;
+class StaticCondensation;
 }
 
 // MOOSE Forward Declares
@@ -63,6 +63,22 @@ typedef MooseVariableFE<RealEigenVector> ArrayMooseVariable;
 class XFEMInterface;
 class SubProblem;
 class NodeFaceConstraint;
+
+#ifdef MOOSE_KOKKOS_ENABLED
+namespace Moose::Kokkos
+{
+class Assembly;
+}
+#endif
+
+// Assembly.h does not import Moose.h nor libMeshReducedNamespace.h
+using libMesh::FEBase;
+using libMesh::FEFamily;
+using libMesh::FEType;
+using libMesh::FEVectorBase;
+using libMesh::LAGRANGE_VEC;
+using libMesh::Order;
+using libMesh::QuadratureType;
 
 /// Computes a conversion multiplier for use when computing integraals for the
 /// current coordinate system type.  This allows us to handle cases where we use RZ,
@@ -203,17 +219,37 @@ public:
     return constify_ref(_vector_fe_face_neighbor[dim][type]);
   }
 
+#ifdef MOOSE_KOKKOS_ENABLED
   /**
-   * Returns the reference to the current quadrature being used
-   * @return A _reference_ to the pointer.  Make sure to store this as a reference!
+   * Key structure for APIs manipulating internal shape and quadrature data. Developers in blessed
+   * classes may create keys using simple curly braces \p {} or may be more explicit and use \p
+   * Assembly::InternalDataKey{}
    */
-  const QBase * const & qRule() const { return constify_ref(_current_qrule); }
+  using InternalDataKey = Moose::PassKey<Moose::Kokkos::Assembly>;
+#endif
 
   /**
    * Returns the reference to the current quadrature being used
    * @return A _reference_ to the pointer.  Make sure to store this as a reference!
    */
-  QBase * const & writeableQRule() { return _current_qrule; }
+  const libMesh::QBase * const & qRule() const { return constify_ref(_current_qrule); }
+
+  /**
+   * Returns the reference to the current quadrature being used
+   * @return A _reference_ to the pointer.  Make sure to store this as a reference!
+   */
+  libMesh::QBase * const & writeableQRule() { return _current_qrule; }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Returns the pointer to the quadrature of specified block and dimension
+   * @return A pointer.
+   */
+  libMesh::QBase * writeableQRule(unsigned int dim, SubdomainID block, InternalDataKey)
+  {
+    return qrules(dim, block).vol.get();
+  }
+#endif
 
   /**
    * Returns the reference to the quadrature points
@@ -277,19 +313,30 @@ public:
    * Get the coordinate system type
    * @return A reference to the coordinate system type
    */
-  const Moose::CoordinateSystemType & coordSystem() { return _coord_type; }
+  const Moose::CoordinateSystemType & coordSystem() const { return _coord_type; }
 
   /**
    * Returns the reference to the current quadrature being used on a current face
    * @return A _reference_.  Make sure to store this as a reference!
    */
-  const QBase * const & qRuleFace() const { return constify_ref(_current_qrule_face); }
+  const libMesh::QBase * const & qRuleFace() const { return constify_ref(_current_qrule_face); }
 
   /**
    * Returns the reference to the current quadrature being used on a current face
    * @return A _reference_.  Make sure to store this as a reference!
    */
-  QBase * const & writeableQRuleFace() { return _current_qrule_face; }
+  libMesh::QBase * const & writeableQRuleFace() { return _current_qrule_face; }
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Returns the pointer to the quadrature used on a face of specified block and dimension
+   * @return A pointer.
+   */
+  libMesh::QBase * writeableQRuleFace(unsigned int dim, SubdomainID block, InternalDataKey)
+  {
+    return qrules(dim, block).face.get();
+  }
+#endif
 
   /**
    * Returns the reference to the current quadrature being used
@@ -321,15 +368,25 @@ public:
   const MooseArray<std::vector<Point>> & tangents() const { return _current_tangents; }
 
   /**
+   * Number of extra element integers Assembly tracked
+   */
+  unsigned int numExtraElemIntegers() const { return _extra_elem_ids.size() - 1; }
+
+  /**
    * Returns an integer ID of the current element given the index associated with the integer
    */
-  const dof_id_type & extraElemID(unsigned int id) const { return _extra_elem_ids[id]; }
+  const dof_id_type & extraElemID(unsigned int id) const
+  {
+    mooseAssert(id < _extra_elem_ids.size(), "An invalid extra element integer id");
+    return _extra_elem_ids[id];
+  }
 
   /**
    * Returns an integer ID of the current element given the index associated with the integer
    */
   const dof_id_type & extraElemIDNeighbor(unsigned int id) const
   {
+    mooseAssert(id < _neighbor_extra_elem_ids.size(), "An invalid extra element integer id");
     return _neighbor_extra_elem_ids[id];
   }
 
@@ -348,7 +405,7 @@ public:
   }
 
   template <bool is_ad>
-  const MooseArray<MooseADWrapper<Point, is_ad>> & genericQPoints() const;
+  const MooseArray<Moose::GenericType<Point, is_ad>> & genericQPoints() const;
 
   /**
    * Return the current element
@@ -380,7 +437,7 @@ public:
    * Returns the reference to the current element volume
    * @return A _reference_.  Make sure to store this as a reference!
    */
-  const Real & elemVolume() { return _current_elem_volume; }
+  const Real & elemVolume() const { return _current_elem_volume; }
 
   /**
    * Returns the current side
@@ -398,13 +455,13 @@ public:
    * Returns the side element
    * @return A _reference_.  Make sure to store this as a reference!
    */
-  const Elem *& sideElem() { return _current_side_elem; }
+  const Elem * const & sideElem() const { return _current_side_elem; }
 
   /**
    * Returns the reference to the volume of current side element
    * @return A _reference_.  Make sure to store this as a reference!
    */
-  const Real & sideElemVolume() { return _current_side_volume; }
+  const Real & sideElemVolume() const { return _current_side_volume; }
 
   /**
    * Return the neighbor element
@@ -458,13 +515,16 @@ public:
    * Returns the reference to the current quadrature being used on a current neighbor
    * @return A _reference_.  Make sure to store this as a reference!
    */
-  const QBase * const & qRuleNeighbor() const { return constify_ref(_current_qrule_neighbor); }
+  const libMesh::QBase * const & qRuleNeighbor() const
+  {
+    return constify_ref(_current_qrule_neighbor);
+  }
 
   /**
    * Returns the reference to the current quadrature being used on a current neighbor
    * @return A _reference_.  Make sure to store this as a reference!
    */
-  QBase * const & writeableQRuleNeighbor() { return _current_qrule_neighbor; }
+  libMesh::QBase * const & writeableQRuleNeighbor() { return _current_qrule_neighbor; }
 
   /**
    * Returns the reference to the transformed jacobian weights on a current face
@@ -530,7 +590,7 @@ public:
    * @param qrule The qrule you want to set
    * @param dim The spatial dimension of the qrule
    */
-  void setVolumeQRule(QBase * qrule, unsigned int dim);
+  void setVolumeQRule(libMesh::QBase * qrule, unsigned int dim);
 
   /**
    * Set the qrule to be used for face integration.
@@ -540,7 +600,7 @@ public:
    * @param qrule The qrule you want to set
    * @param dim The spatial dimension of the qrule
    */
-  void setFaceQRule(QBase * qrule, unsigned int dim);
+  void setFaceQRule(libMesh::QBase * qrule, unsigned int dim);
 
   /**
    * Specifies a custom qrule for integration on mortar segment mesh
@@ -574,7 +634,7 @@ private:
    * @param qrule The qrule you want to set
    * @param dim The spatial dimension of the qrule
    */
-  void setLowerQRule(QBase * qrule, unsigned int dim);
+  void setLowerQRule(libMesh::QBase * qrule, unsigned int dim);
 
 public:
   /**
@@ -585,7 +645,7 @@ public:
    * @param qrule The qrule you want to set
    * @param dim The spatial dimension of the qrule
    */
-  void setNeighborQRule(QBase * qrule, unsigned int dim);
+  void setNeighborQRule(libMesh::QBase * qrule, unsigned int dim);
 
   /**
    * Reinitialize objects (JxW, q_points, ...) for an elements
@@ -649,7 +709,7 @@ public:
   /**
    * Returns a reference to the quadrature rule for the mortar segments
    */
-  const QBase * const & qRuleMortar() const { return constify_ref(_qrule_msm); }
+  const libMesh::QBase * const & qRuleMortar() const { return constify_ref(_qrule_msm); }
 
 private:
   /**
@@ -714,6 +774,9 @@ public:
    */
   void reinitNeighborAtPhysical(const Elem * neighbor, const std::vector<Point> & physical_points);
 
+  /**
+   * Reinitializes the neighbor side using reference coordinates.
+   */
   void reinitNeighbor(const Elem * neighbor, const std::vector<Point> & reference_points);
 
   /**
@@ -724,7 +787,7 @@ public:
   /**
    * Initialize the Assembly object and set the CouplingMatrix for use throughout.
    */
-  void init(const CouplingMatrix * cm);
+  void init(const libMesh::CouplingMatrix * cm);
 
   /// Create pair of variables requiring nonlocal jacobian contributions
   void initNonlocalCoupling();
@@ -914,10 +977,10 @@ public:
   /**
    * Adds element matrix for ivar rows and jvar columns to the global Jacobian matrix.
    */
-  void addJacobianBlock(SparseMatrix<Number> & jacobian,
+  void addJacobianBlock(libMesh::SparseMatrix<Number> & jacobian,
                         unsigned int ivar,
                         unsigned int jvar,
-                        const DofMap & dof_map,
+                        const libMesh::DofMap & dof_map,
                         std::vector<dof_id_type> & dof_indices,
                         GlobalDataKey,
                         TagID tag);
@@ -926,10 +989,10 @@ public:
    * Add element matrix for ivar rows and jvar columns to the global Jacobian matrix for given
    * tags.
    */
-  void addJacobianBlockTags(SparseMatrix<Number> & jacobian,
+  void addJacobianBlockTags(libMesh::SparseMatrix<Number> & jacobian,
                             unsigned int ivar,
                             unsigned int jvar,
-                            const DofMap & dof_map,
+                            const libMesh::DofMap & dof_map,
                             std::vector<dof_id_type> & dof_indices,
                             GlobalDataKey,
                             const std::set<TagID> & tags);
@@ -937,10 +1000,10 @@ public:
   /**
    * Adds non-local element matrix for ivar rows and jvar columns to the global Jacobian matrix.
    */
-  void addJacobianBlockNonlocal(SparseMatrix<Number> & jacobian,
+  void addJacobianBlockNonlocal(libMesh::SparseMatrix<Number> & jacobian,
                                 unsigned int ivar,
                                 unsigned int jvar,
-                                const DofMap & dof_map,
+                                const libMesh::DofMap & dof_map,
                                 const std::vector<dof_id_type> & idof_indices,
                                 const std::vector<dof_id_type> & jdof_indices,
                                 GlobalDataKey,
@@ -949,10 +1012,10 @@ public:
   /**
    * Adds non-local element matrix for ivar rows and jvar columns to the global Jacobian matrix.
    */
-  void addJacobianBlockNonlocalTags(SparseMatrix<Number> & jacobian,
+  void addJacobianBlockNonlocalTags(libMesh::SparseMatrix<Number> & jacobian,
                                     unsigned int ivar,
                                     unsigned int jvar,
-                                    const DofMap & dof_map,
+                                    const libMesh::DofMap & dof_map,
                                     const std::vector<dof_id_type> & idof_indices,
                                     const std::vector<dof_id_type> & jdof_indices,
                                     GlobalDataKey,
@@ -989,10 +1052,10 @@ public:
    * Adds three neighboring element matrices for ivar rows and jvar columns to the global Jacobian
    * matrix.
    */
-  void addJacobianNeighbor(SparseMatrix<Number> & jacobian,
+  void addJacobianNeighbor(libMesh::SparseMatrix<Number> & jacobian,
                            unsigned int ivar,
                            unsigned int jvar,
-                           const DofMap & dof_map,
+                           const libMesh::DofMap & dof_map,
                            std::vector<dof_id_type> & dof_indices,
                            std::vector<dof_id_type> & neighbor_dof_indices,
                            GlobalDataKey,
@@ -1002,10 +1065,10 @@ public:
    * Adds three neighboring element matrices for ivar rows and jvar columns to the global Jacobian
    * matrix.
    */
-  void addJacobianNeighborTags(SparseMatrix<Number> & jacobian,
+  void addJacobianNeighborTags(libMesh::SparseMatrix<Number> & jacobian,
                                unsigned int ivar,
                                unsigned int jvar,
-                               const DofMap & dof_map,
+                               const libMesh::DofMap & dof_map,
                                std::vector<dof_id_type> & dof_indices,
                                std::vector<dof_id_type> & neighbor_dof_indices,
                                GlobalDataKey,
@@ -1574,7 +1637,7 @@ public:
   template <typename OutputType>
   const typename OutputTools<OutputType>::VariablePhiSecond & feSecondPhi(FEType type) const
   {
-    _need_second_derivative[type] = true;
+    _need_second_derivative.insert(type);
     buildFE(type);
     return _fe_shape_data[type]->_second_phi;
   }
@@ -1615,7 +1678,7 @@ public:
   template <typename OutputType>
   const typename OutputTools<OutputType>::VariablePhiSecond & feSecondPhiFace(FEType type) const
   {
-    _need_second_derivative[type] = true;
+    _need_second_derivative.insert(type);
     buildFaceFE(type);
     return _fe_shape_data_face[type]->_second_phi;
   }
@@ -1637,7 +1700,7 @@ public:
   template <typename OutputType>
   const typename OutputTools<OutputType>::VariablePhiSecond & feSecondPhiNeighbor(FEType type) const
   {
-    _need_second_derivative_neighbor[type] = true;
+    _need_second_derivative_neighbor.insert(type);
     buildNeighborFE(type);
     return _fe_shape_data_neighbor[type]->_second_phi;
   }
@@ -1661,7 +1724,7 @@ public:
   const typename OutputTools<OutputType>::VariablePhiSecond &
   feSecondPhiFaceNeighbor(FEType type) const
   {
-    _need_second_derivative_neighbor[type] = true;
+    _need_second_derivative_neighbor.insert(type);
     buildFaceNeighborFE(type);
     return _fe_shape_data_face_neighbor[type]->_second_phi;
   }
@@ -1669,7 +1732,7 @@ public:
   template <typename OutputType>
   const typename OutputTools<OutputType>::VariablePhiCurl & feCurlPhi(FEType type) const
   {
-    _need_curl[type] = true;
+    _need_curl.insert(type);
     buildFE(type);
     return _fe_shape_data[type]->_curl_phi;
   }
@@ -1677,7 +1740,7 @@ public:
   template <typename OutputType>
   const typename OutputTools<OutputType>::VariablePhiCurl & feCurlPhiFace(FEType type) const
   {
-    _need_curl[type] = true;
+    _need_curl.insert(type);
     buildFaceFE(type);
     return _fe_shape_data_face[type]->_curl_phi;
   }
@@ -1685,7 +1748,7 @@ public:
   template <typename OutputType>
   const typename OutputTools<OutputType>::VariablePhiCurl & feCurlPhiNeighbor(FEType type) const
   {
-    _need_curl[type] = true;
+    _need_curl.insert(type);
     buildNeighborFE(type);
     return _fe_shape_data_neighbor[type]->_curl_phi;
   }
@@ -1693,7 +1756,7 @@ public:
   template <typename OutputType>
   const typename OutputTools<OutputType>::VariablePhiCurl & feCurlPhiFaceNeighbor(FEType type) const
   {
-    _need_curl[type] = true;
+    _need_curl.insert(type);
     buildFaceNeighborFE(type);
     return _fe_shape_data_face_neighbor[type]->_curl_phi;
   }
@@ -1701,7 +1764,6 @@ public:
   template <typename OutputType>
   const typename OutputTools<OutputType>::VariablePhiDivergence & feDivPhi(FEType type) const
   {
-    _need_div[type] = true;
     buildFE(type);
     return _fe_shape_data[type]->_div_phi;
   }
@@ -1709,7 +1771,6 @@ public:
   template <typename OutputType>
   const typename OutputTools<OutputType>::VariablePhiDivergence & feDivPhiFace(FEType type) const
   {
-    _need_div[type] = true;
     buildFaceFE(type);
     return _fe_shape_data_face[type]->_div_phi;
   }
@@ -1718,7 +1779,6 @@ public:
   const typename OutputTools<OutputType>::VariablePhiDivergence &
   feDivPhiNeighbor(FEType type) const
   {
-    _need_div[type] = true;
     buildNeighborFE(type);
     return _fe_shape_data_neighbor[type]->_div_phi;
   }
@@ -1727,7 +1787,6 @@ public:
   const typename OutputTools<OutputType>::VariablePhiDivergence &
   feDivPhiFaceNeighbor(FEType type) const
   {
-    _need_div[type] = true;
     buildFaceNeighborFE(type);
     return _fe_shape_data_face_neighbor[type]->_div_phi;
   }
@@ -1761,6 +1820,15 @@ public:
   {
     for (unsigned int j = 0; j < v.size(); ++j, i += ntest)
       re(i) += v(j);
+  }
+
+  void saveLocalADArray(std::vector<ADReal> & re,
+                        unsigned int i,
+                        unsigned int ntest,
+                        const ADRealEigenVector & v) const
+  {
+    for (unsigned int j = 0; j < v.size(); ++j, i += ntest)
+      re[i] += v(j);
   }
 
   /**
@@ -1840,7 +1908,7 @@ public:
    * current subdomain (as set via setCurrentSubdomainID is used to determine
    * the correct rule.  The attached quadrature rule is also returned.
    */
-  inline const QBase * attachQRuleElem(unsigned int dim, FEBase & fe)
+  inline const libMesh::QBase * attachQRuleElem(unsigned int dim, FEBase & fe)
   {
     auto qrule = qrules(dim).vol.get();
     fe.attach_quadrature_rule(qrule);
@@ -1852,7 +1920,7 @@ public:
    * current subdomain (as set via setCurrentSubdomainID is used to determine
    * the correct rule.  The attached quadrature rule is also returned.
    */
-  inline const QBase * attachQRuleFace(unsigned int dim, FEBase & fe)
+  inline const libMesh::QBase * attachQRuleFace(unsigned int dim, FEBase & fe)
   {
     auto qrule = qrules(dim).face.get();
     fe.attach_quadrature_rule(qrule);
@@ -1904,7 +1972,7 @@ public:
    *   of quadrature points reflects the element p-level)
    * @param disable_p_refinement_for_families Families that we should disable p-refinement for
    */
-  void havePRefinement(const std::vector<FEFamily> & disable_p_refinement_for_families);
+  void havePRefinement(const std::unordered_set<FEFamily> & disable_p_refinement_for_families);
 
   /**
    * Set the current lower dimensional element. This may be null
@@ -1934,7 +2002,7 @@ private:
   void reinitFENeighbor(const Elem * neighbor, const std::vector<Point> & reference_points);
 
   template <typename Points, typename Coords>
-  void setCoordinateTransformation(const QBase * qrule,
+  void setCoordinateTransformation(const libMesh::QBase * qrule,
                                    const Points & q_points,
                                    Coords & coord,
                                    SubdomainID sub_id);
@@ -1968,7 +2036,7 @@ private:
   void computeGradPhiAD(const Elem * elem,
                         unsigned int n_qp,
                         ADTemplateVariablePhiGradient<OutputType> & grad_phi,
-                        FEGenericBase<OutputType> * fe);
+                        libMesh::FEGenericBase<OutputType> * fe);
 
   /**
    * resize any objects that contribute to automatic differentiation-related mapping calculations
@@ -2031,8 +2099,7 @@ private:
    */
   void processLocalResidual(DenseVector<Number> & res_block,
                             std::vector<dof_id_type> & dof_indices,
-                            const std::vector<Real> & scaling_factor,
-                            bool is_nodal);
+                            const std::vector<Real> & scaling_factor);
 
   /**
    * Add a local residual block to a global residual vector with proper scaling.
@@ -2040,8 +2107,7 @@ private:
   void addResidualBlock(NumericVector<Number> & residual,
                         DenseVector<Number> & res_block,
                         const std::vector<dof_id_type> & dof_indices,
-                        const std::vector<Real> & scaling_factor,
-                        bool is_nodal);
+                        const std::vector<Real> & scaling_factor);
 
   /**
    * Push a local residual block with proper scaling into cache.
@@ -2050,8 +2116,7 @@ private:
                           std::vector<dof_id_type> & cached_residual_rows,
                           DenseVector<Number> & res_block,
                           const std::vector<dof_id_type> & dof_indices,
-                          const std::vector<Real> & scaling_factor,
-                          bool is_nodal);
+                          const std::vector<Real> & scaling_factor);
 
   /**
    * Set a local residual block to a global residual vector with proper scaling.
@@ -2059,13 +2124,12 @@ private:
   void setResidualBlock(NumericVector<Number> & residual,
                         DenseVector<Number> & res_block,
                         const std::vector<dof_id_type> & dof_indices,
-                        const std::vector<Real> & scaling_factor,
-                        bool is_nodal);
+                        const std::vector<Real> & scaling_factor);
 
   /**
    * Add a local Jacobian block to a global Jacobian with proper scaling.
    */
-  void addJacobianBlock(SparseMatrix<Number> & jacobian,
+  void addJacobianBlock(libMesh::SparseMatrix<Number> & jacobian,
                         DenseMatrix<Number> & jac_block,
                         const MooseVariableBase & ivar,
                         const MooseVariableBase & jvar,
@@ -2255,8 +2319,8 @@ private:
   const bool _displaced;
 
   /// Coupling matrices
-  const CouplingMatrix * _cm;
-  const CouplingMatrix & _nonlocal_cm;
+  const libMesh::CouplingMatrix * _cm;
+  const libMesh::CouplingMatrix & _nonlocal_cm;
 
   /// Whether we are currently computing the residual
   const bool & _computing_residual;
@@ -2285,7 +2349,7 @@ private:
   /// Flag that indicates if the jacobian block for the lower dimensional element was used
   std::vector<std::vector<std::vector<unsigned char>>> _jacobian_block_lower_used;
   /// DOF map
-  const DofMap & _dof_map;
+  const libMesh::DofMap & _dof_map;
   /// Thread number (id)
   THREAD_ID _tid;
 
@@ -2347,9 +2411,9 @@ private:
   /// The current helper object for transforming coordinates
   FEBase * _current_fe_helper;
   /// The current current quadrature rule being used (could be either volumetric or arbitrary - for dirac kernels)
-  QBase * _current_qrule;
+  libMesh::QBase * _current_qrule;
   /// The current volumetric quadrature for the element
-  QBase * _current_qrule_volume;
+  libMesh::QBase * _current_qrule_volume;
   /// The current arbitrary quadrature rule used within the element interior
   ArbitraryQuadrature * _current_qrule_arbitrary;
   /// The current arbitrary quadrature rule used on the element face
@@ -2363,7 +2427,7 @@ private:
   /// The current coordinate transformation coefficients
   MooseArray<Real> _coord;
   /// The AD version of the current coordinate transformation coefficients
-  MooseArray<DualReal> _ad_coord;
+  MooseArray<ADReal> _ad_coord;
 
   /// Data structure for tracking/grouping a set of quadrature rules for a
   /// particular dimensionality of mesh element.
@@ -2379,11 +2443,11 @@ private:
     }
 
     /// volume/elem (meshdim) quadrature rule
-    std::unique_ptr<QBase> vol;
+    std::unique_ptr<libMesh::QBase> vol;
     /// area/face (meshdim-1) quadrature rule
-    std::unique_ptr<QBase> face;
+    std::unique_ptr<libMesh::QBase> face;
     /// finite volume face/flux quadrature rule (meshdim-1)
-    std::unique_ptr<QBase> fv_face;
+    std::unique_ptr<libMesh::QBase> fv_face;
     /// volume/elem (meshdim) custom points quadrature rule
     std::unique_ptr<ArbitraryQuadrature> arbitrary_vol;
     /// area/face (meshdim-1) custom points quadrature rule
@@ -2404,7 +2468,7 @@ private:
   /// the subdomain that has the highest specified quadrature order.  So when
   /// you need to access a face quadrature rule, you should retrieve it via this
   /// function.
-  QBase * qruleFace(const Elem * elem, unsigned int side);
+  libMesh::QBase * qruleFace(const Elem * elem, unsigned int side);
   ArbitraryQuadrature * qruleArbitraryFace(const Elem * elem, unsigned int side);
 
   template <typename T>
@@ -2459,7 +2523,7 @@ private:
   /// helper object for transforming coordinates
   FEBase * _current_fe_face_helper;
   /// quadrature rule used on faces
-  QBase * _current_qrule_face;
+  libMesh::QBase * _current_qrule_face;
   /// The current arbitrary quadrature rule used on element faces
   ArbitraryQuadrature * _current_qface_arbitrary;
   /// The current quadrature points on a face
@@ -2500,7 +2564,7 @@ private:
   std::map<unsigned int, FEBase *> _holder_fe_lower_helper;
 
   /// quadrature rule used on neighbors
-  QBase * _current_qrule_neighbor;
+  libMesh::QBase * _current_qrule_neighbor;
   /// The current quadrature points on the neighbor face
   MooseArray<Point> _current_q_points_face_neighbor;
   /// Flag to indicate that JxW_neighbor is needed
@@ -2523,13 +2587,13 @@ private:
   /// raw pointer because we need to be able to return a reference to it because
   /// we will be constructing other objects that need the qrule before the qrule
   /// is actually created
-  QBase * _qrule_msm;
+  libMesh::QBase * _qrule_msm;
   /// Flag specifying whether a custom quadrature rule has been specified for mortar segment mesh
   bool _custom_mortar_qrule;
 
   /// quadrature rule used on lower dimensional elements. This should always be
   /// the same as the face qrule
-  QBase * _current_qrule_lower;
+  libMesh::QBase * _current_qrule_lower;
 
 protected:
   /// The current "element" we are currently on.
@@ -2764,30 +2828,30 @@ protected:
   std::vector<Point> _temp_reference_points;
 
   /// AD quantities
-  std::vector<VectorValue<DualReal>> _ad_dxyzdxi_map;
-  std::vector<VectorValue<DualReal>> _ad_dxyzdeta_map;
-  std::vector<VectorValue<DualReal>> _ad_dxyzdzeta_map;
-  std::vector<VectorValue<DualReal>> _ad_d2xyzdxi2_map;
-  std::vector<VectorValue<DualReal>> _ad_d2xyzdxideta_map;
-  std::vector<VectorValue<DualReal>> _ad_d2xyzdeta2_map;
-  std::vector<DualReal> _ad_jac;
-  MooseArray<DualReal> _ad_JxW;
-  MooseArray<VectorValue<DualReal>> _ad_q_points;
-  std::vector<DualReal> _ad_dxidx_map;
-  std::vector<DualReal> _ad_dxidy_map;
-  std::vector<DualReal> _ad_dxidz_map;
-  std::vector<DualReal> _ad_detadx_map;
-  std::vector<DualReal> _ad_detady_map;
-  std::vector<DualReal> _ad_detadz_map;
-  std::vector<DualReal> _ad_dzetadx_map;
-  std::vector<DualReal> _ad_dzetady_map;
-  std::vector<DualReal> _ad_dzetadz_map;
+  std::vector<VectorValue<ADReal>> _ad_dxyzdxi_map;
+  std::vector<VectorValue<ADReal>> _ad_dxyzdeta_map;
+  std::vector<VectorValue<ADReal>> _ad_dxyzdzeta_map;
+  std::vector<VectorValue<ADReal>> _ad_d2xyzdxi2_map;
+  std::vector<VectorValue<ADReal>> _ad_d2xyzdxideta_map;
+  std::vector<VectorValue<ADReal>> _ad_d2xyzdeta2_map;
+  std::vector<ADReal> _ad_jac;
+  MooseArray<ADReal> _ad_JxW;
+  MooseArray<VectorValue<ADReal>> _ad_q_points;
+  std::vector<ADReal> _ad_dxidx_map;
+  std::vector<ADReal> _ad_dxidy_map;
+  std::vector<ADReal> _ad_dxidz_map;
+  std::vector<ADReal> _ad_detadx_map;
+  std::vector<ADReal> _ad_detady_map;
+  std::vector<ADReal> _ad_detadz_map;
+  std::vector<ADReal> _ad_dzetadx_map;
+  std::vector<ADReal> _ad_dzetady_map;
+  std::vector<ADReal> _ad_dzetadz_map;
 
-  MooseArray<DualReal> _ad_JxW_face;
-  MooseArray<VectorValue<DualReal>> _ad_normals;
-  MooseArray<VectorValue<DualReal>> _ad_q_points_face;
+  MooseArray<ADReal> _ad_JxW_face;
+  MooseArray<VectorValue<ADReal>> _ad_normals;
+  MooseArray<VectorValue<ADReal>> _ad_q_points_face;
   MooseArray<Real> _curvatures;
-  MooseArray<DualReal> _ad_curvatures;
+  MooseArray<ADReal> _ad_curvatures;
 
   /**
    * Container of displacement numbers and directions
@@ -2802,20 +2866,23 @@ protected:
   /// adCoordTransformation()
   mutable bool _calculate_ad_coord;
 
-  mutable std::map<FEType, bool> _need_second_derivative;
-  mutable std::map<FEType, bool> _need_second_derivative_neighbor;
-  mutable std::map<FEType, bool> _need_curl;
-  mutable std::map<FEType, bool> _need_div;
+  mutable std::set<FEType> _need_second_derivative;
+  mutable std::set<FEType> _need_second_derivative_neighbor;
+  mutable std::set<FEType> _need_curl;
+  mutable std::set<FEType> _need_div;
+  mutable std::set<FEType> _need_face_div;
+  mutable std::set<FEType> _need_neighbor_div;
+  mutable std::set<FEType> _need_face_neighbor_div;
 
   /// The map from global index to variable scaling factor
   const NumericVector<Real> * _scaling_vector = nullptr;
 
   /// In place side element builder for _current_side_elem
-  ElemSideBuilder _current_side_elem_builder;
+  libMesh::ElemSideBuilder _current_side_elem_builder;
   /// In place side element builder for _current_neighbor_side_elem
-  ElemSideBuilder _current_neighbor_side_elem_builder;
+  libMesh::ElemSideBuilder _current_neighbor_side_elem_builder;
   /// In place side element builder for computeFaceMap()
-  ElemSideBuilder _compute_face_map_side_elem_builder;
+  libMesh::ElemSideBuilder _compute_face_map_side_elem_builder;
 
   const Elem * _msm_elem = nullptr;
 
@@ -3072,10 +3139,11 @@ Assembly::cacheJacobian(const Residuals & residuals,
 #ifndef NDEBUG
   auto compare_dofs_set = std::set<dof_id_type>(compare_dofs.begin(), compare_dofs.end());
 
-  for (auto resid_it = residuals.begin() + 1; resid_it != residuals.end(); ++resid_it)
+  for (const auto i : make_range(decltype(residuals.size())(1), residuals.size()))
   {
-    auto current_dofs_set = std::set<dof_id_type>(resid_it->derivatives().nude_indices().begin(),
-                                                  resid_it->derivatives().nude_indices().end());
+    const auto & residual = residuals[i];
+    auto current_dofs_set = std::set<dof_id_type>(residual.derivatives().nude_indices().begin(),
+                                                  residual.derivatives().nude_indices().end());
     mooseAssert(compare_dofs_set == current_dofs_set,
                 "We're going to see whether the dof sets are the same. IIRC the degree of freedom "
                 "dependence (as indicated by the dof index set held by the ADReal) has to be the "

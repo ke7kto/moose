@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -65,17 +65,24 @@ ComputeMaterialsObjectThread::ComputeMaterialsObjectThread(ComputeMaterialsObjec
 void
 ComputeMaterialsObjectThread::subdomainChanged()
 {
-  _need_internal_side_material = _fe_problem.needSubdomainMaterialOnSide(_subdomain, _tid);
+  _need_internal_side_material = _fe_problem.needInternalNeighborSideMaterial(_subdomain, _tid);
   _fe_problem.subdomainSetup(_subdomain, _tid);
 
   std::set<MooseVariableFEBase *> needed_moose_vars;
   _materials.updateVariableDependency(needed_moose_vars, _tid);
+  _discrete_materials.updateVariableDependency(needed_moose_vars, _tid);
   _fe_problem.setActiveElementalMooseVariables(needed_moose_vars, _tid);
 
   std::set<TagID> needed_fe_var_vector_tags;
   _materials.updateBlockFEVariableCoupledVectorTagDependency(
       _subdomain, needed_fe_var_vector_tags, _tid);
+  _discrete_materials.updateBlockFEVariableCoupledVectorTagDependency(
+      _subdomain, needed_fe_var_vector_tags, _tid);
   _fe_problem.setActiveFEVariableCoupleableVectorTags(needed_fe_var_vector_tags, _tid);
+
+  // Note that we do not know here which materials will be active on this subdomain because we don't
+  // have the various warehouses (kernels, ...) to gather the needed material properties like in
+  // NonlinearThread
 }
 
 void
@@ -112,8 +119,8 @@ ComputeMaterialsObjectThread::onBoundary(const Elem * elem,
 {
   if (_fe_problem.needBoundaryMaterialOnSide(bnd_id, _tid))
   {
-    _fe_problem.reinitElemFace(elem, side, bnd_id, _tid);
-    unsigned int face_n_points = _assembly[_tid][0]->qRuleFace()->n_points();
+    _fe_problem.reinitElemFace(elem, side, _tid);
+    const auto face_n_points = _assembly[_tid][/*system_index*/ 0]->qRuleFace()->n_points();
 
     _bnd_material_props.getMaterialData(_tid).resize(face_n_points);
 
@@ -209,7 +216,7 @@ ComputeMaterialsObjectThread::onInterface(const Elem * elem, unsigned int side, 
   if (!_fe_problem.needInterfaceMaterialOnSide(bnd_id, _tid))
     return;
 
-  _fe_problem.reinitElemFace(elem, side, bnd_id, _tid);
+  _fe_problem.reinitElemFace(elem, side, _tid);
   unsigned int face_n_points = _assembly[_tid][0]->qRuleFace()->n_points();
 
   _bnd_material_props.getMaterialData(_tid).resize(face_n_points);

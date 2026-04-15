@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,7 @@
 #include "SideSetsFromPointsGenerator.h"
 #include "Parser.h"
 #include "InputParameters.h"
+#include "MeshTraversingUtils.h"
 #include "MooseMeshUtils.h"
 #include "CastUniquePointer.h"
 
@@ -34,25 +35,27 @@ SideSetsFromPointsGenerator::validParams()
 {
   InputParameters params = SideSetsGeneratorBase::validParams();
 
-  params.addRequiredParam<MeshGeneratorName>("input", "The mesh we want to modify");
   params.addClassDescription("Adds a new sideset starting at the specified point containing all "
                              "connected element faces with the same normal.");
-  params.addRequiredParam<std::vector<BoundaryName>>("new_boundary",
-                                                     "The name of the boundary to create");
   params.addRequiredParam<std::vector<Point>>(
       "points", "A list of points from which to start painting sidesets");
+
+  params.suppressParameter<Point>("normal");
+  params.suppressParameter<Real>("normal_tol");
+
+  // It doesn't make sense to allow internal sides for this side set generator.
+  params.setParameters("include_only_external_sides", true);
+  params.suppressParameter<bool>("include_only_external_sides");
 
   return params;
 }
 
 SideSetsFromPointsGenerator::SideSetsFromPointsGenerator(const InputParameters & parameters)
-  : SideSetsGeneratorBase(parameters),
-    _input(getMesh("input")),
-    _boundary_names(getParam<std::vector<BoundaryName>>("new_boundary")),
-    _points(getParam<std::vector<Point>>("points"))
+  : SideSetsGeneratorBase(parameters), _points(getParam<std::vector<Point>>("points"))
 {
   if (_points.size() != _boundary_names.size())
     mooseError("point list and boundary list are not the same length");
+  _using_normal = true;
 }
 
 std::unique_ptr<MeshBase>
@@ -62,7 +65,7 @@ SideSetsFromPointsGenerator::generate()
 
   // Our flood fill doesn't do any communication, so it requires a
   // serialized mesh
-  MeshSerializer serial(*mesh);
+  libMesh::MeshSerializer serial(*mesh);
 
   // Get the BoundaryIDs from the mesh
   std::vector<BoundaryID> boundary_ids =
@@ -72,9 +75,10 @@ SideSetsFromPointsGenerator::generate()
 
   _visited.clear();
 
-  std::unique_ptr<PointLocatorBase> pl = PointLocatorBase::build(TREE, *mesh);
+  std::unique_ptr<libMesh::PointLocatorBase> pl =
+      libMesh::PointLocatorBase::build(libMesh::TREE, *mesh);
 
-  for (unsigned int i = 0; i < boundary_ids.size(); ++i)
+  for (const auto i : index_range(boundary_ids))
   {
     std::set<const Elem *> candidate_elements;
     (*pl)(_points[i], candidate_elements);
@@ -83,7 +87,7 @@ SideSetsFromPointsGenerator::generate()
     Point normal_to_flood;
 
     for (const Elem * elem : candidate_elements)
-      for (unsigned int side = 0; side < elem->n_sides(); ++side)
+      for (const auto side : make_range(elem->n_sides()))
       {
         if (elem->neighbor_ptr(side))
           continue;
@@ -100,8 +104,9 @@ SideSetsFromPointsGenerator::generate()
 
           // If we *already* found a good but different side to paint
           // our sideset with, we've got an ambiguity here.
-          if (elem_to_flood && (std::abs(1.0 - normal_to_flood * normals[0]) > _variance ||
-                                elem_to_flood->which_neighbor_am_i(elem) == libMesh::invalid_uint))
+          if (elem_to_flood &&
+              (!MeshTraversingUtils::normalsWithinTol(normal_to_flood, normals[0], _normal_tol) ||
+               elem_to_flood->which_neighbor_am_i(elem) == libMesh::invalid_uint))
             mooseError("Two ambiguous potential sideset sources found for boundary `",
                        _boundary_names[i],
                        "' at ",
@@ -131,9 +136,9 @@ SideSetsFromPointsGenerator::generate()
 
   finalize();
 
-  for (unsigned int i = 0; i < boundary_ids.size(); ++i)
+  for (const auto i : index_range(boundary_ids))
     mesh->get_boundary_info().sideset_name(boundary_ids[i]) = _boundary_names[i];
 
-  mesh->set_isnt_prepared();
+  mesh->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(mesh);
 }

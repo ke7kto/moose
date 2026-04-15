@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -36,6 +36,9 @@ public:
                                   const Elem * elem,
                                   const Moose::StateArg & state) const override;
   bool hasBlocks(SubdomainID sub_id) const override { return _array.hasBlocks(sub_id); }
+
+  bool supportsFaceArg() const override final { return _array.supportsFaceArg(); }
+  bool supportsElemSideQpArg() const override final { return _array.supportsElemSideQpArg(); }
 
 private:
   /// The parent array functor

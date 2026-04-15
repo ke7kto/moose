@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,36 +10,36 @@
 #pragma once
 
 // MOOSE includes
-#include "MooseBase.h"
-#include "MooseBaseParameterInterface.h"
-#include "MooseBaseErrorInterface.h"
+#include "MooseUtils.h"
+#include "ParallelParamObject.h"
 #include "InputParameters.h"
 #include "ConsoleStreamInterface.h"
 #include "Registry.h"
-#include "MooseUtils.h"
-#include "DataFileInterface.h"
 #include "MooseObjectParameterName.h"
-
-#include "libmesh/parallel_object.h"
+#include "SolutionInvalidInterface.h"
 
 #define usingMooseObjectMembers                                                                    \
   usingMooseBaseMembers;                                                                           \
-  usingMooseBaseParameterInterfaceMembers;                                                         \
   using MooseObject::enabled
 
 /**
  * Every object that can be built by the factory should be derived from this class.
  */
-class MooseObject : public MooseBase,
-                    public MooseBaseParameterInterface,
-                    public MooseBaseErrorInterface,
-                    public libMesh::ParallelObject,
-                    public DataFileInterface<MooseObject>
+class MooseObject : public ParallelParamObject,
+                    public SolutionInvalidInterface,
+                    public std::enable_shared_from_this<MooseObject>
 {
 public:
   static InputParameters validParams();
 
   MooseObject(const InputParameters & parameters);
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Special constructor used for Kokkos functor copy during parallel dispatch
+   */
+  MooseObject(const MooseObject & object, const Moose::Kokkos::FunctorCopy & key);
+#endif
 
   virtual ~MooseObject() = default;
 
@@ -47,6 +47,24 @@ public:
    * Return the enabled status of the object.
    */
   virtual bool enabled() const { return _enabled; }
+
+  /**
+   * Get another shared pointer to this object that has the same ownership group. Wrapper around
+   * shared_from_this().
+   */
+  std::shared_ptr<MooseObject> getSharedPtr();
+  std::shared_ptr<const MooseObject> getSharedPtr() const;
+
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Get whether this object is a Kokkos functor
+   * The parameter MooseBase::kokkos_object_param is set by the Kokkos base classes
+   */
+  bool isKokkosObject() const { return parameters().isKokkosObject(); }
+#endif
+
+  // To get warnings tracked in the SolutionInvalidityOutput
+  usingCombinedWarningSolutionWarnings;
 
 protected:
   /// Reference to the "enable" InputParameters, used by Controls for toggling on/off MooseObjects

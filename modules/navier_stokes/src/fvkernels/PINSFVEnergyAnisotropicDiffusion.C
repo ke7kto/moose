@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -68,9 +68,8 @@ PINSFVEnergyAnisotropicDiffusion::computeQpResidual()
     const auto face_elem = elemArg();
     const auto face_neighbor = neighborArg();
 
-    const auto value1 = _porosity_factored_in
-                            ? _k(face_elem, state)
-                            : _k(face_neighbor, state) * _eps(face_neighbor, state);
+    const auto value1 = _porosity_factored_in ? _k(face_elem, state)
+                                              : _k(face_elem, state) * _eps(face_elem, state);
     const auto value2 = _porosity_factored_in
                             ? _k(face_neighbor, state)
                             : _k(face_neighbor, state) * _eps(face_neighbor, state);

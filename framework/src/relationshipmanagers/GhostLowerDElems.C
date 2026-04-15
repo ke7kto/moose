@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -75,4 +75,10 @@ bool
 GhostLowerDElems::operator>=(const RelationshipManager & other) const
 {
   return dynamic_cast<const GhostLowerDElems *>(&other);
+}
+
+std::unique_ptr<GhostingFunctor>
+GhostLowerDElems::clone() const
+{
+  return _app.getFactory().copyConstruct(*this);
 }

@@ -43,7 +43,7 @@ volume_constraint = 200
     input = gather_all
     bottom_left = '-100 -100 -100'
     top_right = '100 100 100'
-    boundaries_old = 'inner outer'
+    included_boundaries = 'inner outer'
     boundary_new = moving
   []
 
@@ -238,7 +238,7 @@ volume_constraint = 200
   [eq_constraint]
     type = ParsedPostprocessor
     pp_names = current_volume
-    function = 'current_volume - ${volume_constraint}'
+    expression = 'current_volume - ${volume_constraint}'
   []
   [func_r0]
     type = FunctionValuePostprocessor

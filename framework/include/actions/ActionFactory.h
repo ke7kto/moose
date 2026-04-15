@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -20,12 +20,16 @@
 /**
  * Macros
  */
-#define stringifyName(name) #name
-
 #define registerSyntax(action, action_syntax)                                                      \
   syntax.registerActionSyntax(action, action_syntax, "", __FILE__, __LINE__)
 #define registerSyntaxTask(action, action_syntax, task)                                            \
   syntax.registerActionSyntax(action, action_syntax, task, __FILE__, __LINE__)
+#define registerDeprecatedSyntax(action, action_syntax, message)                                   \
+  syntax.registerActionSyntax(action, action_syntax, "", __FILE__, __LINE__);                      \
+  syntax.deprecateActionSyntax(action_syntax, message)
+#define registerDeprecatedSyntaxTask(action, action_syntax, task, message)                         \
+  syntax.registerActionSyntax(action, action_syntax, task, __FILE__, __LINE__);                    \
+  syntax.deprecateActionSyntax(action_syntax, message)
 #define registerTask(name, is_required) syntax.registerTaskName(name, is_required)
 #define registerMooseObjectTask(name, moose_system, is_required)                                   \
   syntax.registerTaskName(name, stringifyName(moose_system), is_required)
@@ -83,6 +87,7 @@ public:
   iterator end();
   const_iterator end() const;
 
+  /// Returns begin and end iterators in a multimap from tasks to actions names
   std::pair<std::multimap<std::string, std::string>::const_iterator,
             std::multimap<std::string, std::string>::const_iterator>
   getActionsByTask(const std::string & task) const;
@@ -93,6 +98,14 @@ public:
    * Whether or not a task with the name \p task is registered.
    */
   bool isRegisteredTask(const std::string & task) const { return _tasks.count(task); }
+
+  /**
+   * @return The InputParameters for the object that is currently being constructed,
+   * if any.
+   *
+   * Can be used to ensure that all Actions are created using the ActionFactory
+   */
+  const InputParameters * currentlyConstructing() const;
 
 private:
   template <class T>
@@ -113,4 +126,9 @@ private:
 
   /// The registered tasks
   std::set<std::string> _tasks;
+
+  /// The object's parameters that are currently being constructed (if any).
+  /// This is a vector because we create within create, thus the last entry is the
+  /// one that is being constructed at the moment
+  std::vector<const InputParameters *> _currently_constructing;
 };

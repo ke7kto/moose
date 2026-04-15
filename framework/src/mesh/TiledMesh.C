@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,7 @@
 #include "TiledMesh.h"
 #include "Parser.h"
 #include "InputParameters.h"
+#include "MooseApp.h"
 
 #include "libmesh/mesh_modification.h"
 #include "libmesh/serial_mesh.h"
@@ -79,7 +80,7 @@ TiledMesh::TiledMesh(const TiledMesh & other_mesh)
 std::unique_ptr<MooseMesh>
 TiledMesh::safeClone() const
 {
-  return std::make_unique<TiledMesh>(*this);
+  return _app.getFactory().copyConstruct(*this);
 }
 
 std::string
@@ -101,9 +102,9 @@ TiledMesh::buildMesh()
   {
     std::string mesh_file(getParam<MeshFileName>("file"));
 
-    if (mesh_file.rfind(".exd") < mesh_file.size() || mesh_file.rfind(".e") < mesh_file.size())
+    if (mesh_file.rfind(".exo") < mesh_file.size() || mesh_file.rfind(".e") < mesh_file.size())
     {
-      ExodusII_IO ex(*this);
+      libMesh::ExodusII_IO ex(*this);
       ex.read(mesh_file);
       serial_mesh->prepare_for_use();
     }

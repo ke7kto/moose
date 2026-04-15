@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,6 +8,10 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #pragma once
+
+#ifdef MOOSE_KOKKOS_ENABLED
+#include "KokkosMaterialProperty.h"
+#endif
 
 #include "MaterialProperty.h"
 #include "Moose.h"
@@ -18,11 +22,13 @@
 
 #include <vector>
 #include <memory>
+#include <typeinfo>
 
 class MaterialPropertyStorage;
 class MooseObject;
 class Material;
 class XFEM;
+class MaterialBase;
 
 /**
  * Proxy for accessing MaterialPropertyStorage.
@@ -96,6 +102,18 @@ public:
     return haveGenericProperty<T, true>(prop_name);
   }
 
+#ifdef MOOSE_KOKKOS_SCOPE
+  /**
+   * Get whether a Kokkos material property exists
+   * @tparam T The property data type
+   * @tparam dimension The property dimension
+   * @param prop_name The property name
+   * @returns Whether the Kokkos material property exists
+   */
+  template <typename T, unsigned int dimension>
+  bool haveKokkosProperty(const std::string & prop_name) const;
+#endif
+
   /**
    * Retrieves a material property
    * @tparam T The type of the property
@@ -126,6 +144,40 @@ public:
   {
     return getPropertyHelper<T, is_ad, true>(prop_name, 0, requestor);
   }
+
+#ifdef MOOSE_KOKKOS_SCOPE
+  /**
+   * Get a Kokkos material property
+   * @tparam T The property data type
+   * @tparam dimension The property dimension
+   * @tparam state The property state
+   * @param prop_name The property name
+   * @return The Kokkos material property
+   */
+  template <typename T, unsigned int dimension, unsigned int state>
+  Moose::Kokkos::MaterialProperty<T, dimension> getKokkosProperty(const std::string & prop_name);
+
+  /**
+   * Declare a Kokkos material property
+   * @tparam T The property data type
+   * @tparam dimension The property dimension
+   * @param prop_name The property name
+   * @param dims The vector containing the size of each dimension
+   * @param declarer The Kokkos material declaring the property
+   * @param bnd Whether the property is a face property
+   * @param on_demand Whether the property is an on-demand property
+   * @param constant_option Whether the property is constant on element or subdomain
+   * @return The Kokkos material property
+   */
+  template <typename T, unsigned int dimension>
+  Moose::Kokkos::MaterialProperty<T, dimension>
+  declareKokkosProperty(const std::string & prop_name,
+                        const std::vector<unsigned int> & dims,
+                        const MaterialBase * declarer,
+                        const bool bnd,
+                        const bool on_demand,
+                        const Moose::Kokkos::PropertyConstantOption constant_option);
+#endif
 
   /**
    * Returns true if the stateful material is in a swapped state.
@@ -204,14 +256,89 @@ private:
   /// The underlying property data
   std::array<MaterialProperties, max_state + 1> _props;
 
-  unsigned int addPropertyHelper(const std::string & prop_name, const unsigned int state);
+  unsigned int addPropertyHelper(const std::string & prop_name,
+                                 const std::type_info & type,
+                                 const unsigned int state,
+                                 const MaterialBase * const declarer);
 
   template <typename T, bool is_ad, bool declare>
   GenericMaterialProperty<T, is_ad> & getPropertyHelper(const std::string & prop_name,
                                                         const unsigned int state,
                                                         const MooseObject & requestor);
 
+#ifdef MOOSE_KOKKOS_ENABLED
+  /**
+   * Helper function for adding a Kokkos material property
+   * @param prop_name The property name
+   * @param type The property data type
+   * @param state The property state
+   * @param shell The managed pointer containing the instance of the property
+   * @return The Kokkos material property
+   */
+  Moose::Kokkos::MaterialPropertyBase &
+  addKokkosPropertyHelper(const std::string & prop_name,
+                          const std::type_info & type,
+                          const unsigned int state,
+                          std::shared_ptr<Moose::Kokkos::MaterialPropertyBase> shell);
+
+  /**
+   * Helper function for declaring a Kokkos material property
+   * @param prop_name The property name
+   * @param type The property data type
+   * @param declarer The Kokkos material declaring the property
+   * @param dims The vector containing the size of each dimension
+   * @param bnd Whether the property is a face property
+   * @param on_demand Whether the property is an on-demand property
+   * @param constant_option Whether the property is constant on element or subdomain
+   * @param shell The managed pointer containing the instance of the property
+   * @return The Kokkos material property
+   */
+  Moose::Kokkos::MaterialPropertyBase &
+  declareKokkosPropertyHelper(const std::string & prop_name,
+                              const std::type_info & type,
+                              const MaterialBase * declarer,
+                              const std::vector<unsigned int> & dims,
+                              const bool bnd,
+                              const bool on_demand,
+                              const Moose::Kokkos::PropertyConstantOption constant_option,
+                              std::shared_ptr<Moose::Kokkos::MaterialPropertyBase> shell);
+
+  /**
+   * Helper function for getting a Kokkos material property
+   * @param prop_name The property name
+   * @param state The property state
+   * @param shell The managed pointer containing the instance of the property
+   * @return The Kokkos material property
+   */
+  Moose::Kokkos::MaterialPropertyBase & getKokkosPropertyHelper(
+      const std::string & prop_name,
+      const unsigned int state = 0,
+      std::shared_ptr<Moose::Kokkos::MaterialPropertyBase> shell = nullptr) const;
+
+  /**
+   * Helper function for checking whether a Kokkos material property exists
+   * @param prop_name The property name
+   * @return Whether the Kokkos material property exists
+   */
+  bool haveKokkosPropertyHelper(const std::string & prop_name) const;
+  /**
+   * Helper function to register load/store functions of a Kokkos material property to the Kokkos
+   * material property storage
+   * @param type The property type index
+   * @param store The store function pointer
+   * @param load The load function pointer
+   */
+  void kokkosRegisterLoadStoreHelper(std::type_index type,
+                                     Moose::Kokkos::PropertyStore store,
+                                     Moose::Kokkos::PropertyLoad load);
+#endif
+
   static void mooseErrorHelper(const MooseObject & object, const std::string_view & error);
+
+  /**
+   * Helper for casting \p requestor to a MaterialBase in addPropertyHelper() (templated)
+   */
+  const MaterialBase & castRequestorToDeclarer(const MooseObject & requestor) const;
 
   /// Status of storage swapping (calling swap sets this to true; swapBack sets it to false)
   bool _swapped;
@@ -219,6 +346,9 @@ private:
   /// Use non-destructive resize of material data (calling resize() will not reduce size).
   /// Default is false (normal resize behaviour)
   bool _resize_only_if_smaller;
+
+  /// maximum state id requested for a property
+  unsigned int getMaxStateRequested(const unsigned int prop_id) const;
 };
 
 inline const MaterialProperties &
@@ -263,21 +393,24 @@ MaterialData::getPropertyHelper(const std::string & prop_name,
     mooseAssert(state == 0, "Cannot declare properties for states other than zero");
 
   // Register/get the ID of the property
-  const auto prop_id = addPropertyHelper(prop_name, state);
+  const auto prop_id = addPropertyHelper(
+      prop_name, typeid(T), state, declare ? &castRequestorToDeclarer(requestor) : nullptr);
+  const auto size = prop_id + 1;
 
   // Initialize the states that we need
-  const auto size = prop_id + 1;
-  for (const auto state_i : make_range(state + 1))
+  for (const auto state_i : make_range(getMaxStateRequested(prop_id) + 1))
   {
     auto & entry = props(state_i);
     if (entry.size() < size)
       entry.resize(size, {});
-    if (!entry.hasValue(prop_id))
+    // if we are not declaring the property we initialize only what we need (the requested state)
+    if (!entry.hasValue(prop_id) && (declare || state_i == state))
     {
-      std::unique_ptr<PropertyValue> value =
-          state_i == 0 ? std::make_unique<GenericMaterialProperty<T, is_ad>>(prop_id)
-                       : _props[0][prop_id].clone(0);
-      entry.setPointer(prop_id, std::move(value), {});
+      if (state_i == 0)
+        entry.setPointer(
+            prop_id, std::move(std::make_unique<GenericMaterialProperty<T, is_ad>>(prop_id)), {});
+      else
+        entry.setPointer(prop_id, std::move(std::make_unique<MaterialProperty<T>>(prop_id)), {});
     }
   }
 
@@ -312,3 +445,87 @@ MaterialData::reinit(const MatContainer & mats)
   for (const auto & mat : mats)
     mat->computeProperties();
 }
+
+#ifdef MOOSE_KOKKOS_SCOPE
+template <typename T, unsigned int dimension>
+bool
+MaterialData::haveKokkosProperty(const std::string & prop_name) const
+{
+  if (!haveKokkosPropertyHelper(prop_name))
+    return false;
+
+  auto & prop = getKokkosPropertyHelper(prop_name);
+  return dynamic_cast<Moose::Kokkos::MaterialProperty<T, dimension> *>(&prop) != nullptr;
+}
+
+template <typename T, unsigned int dimension, unsigned int state>
+Moose::Kokkos::MaterialProperty<T, dimension>
+MaterialData::getKokkosProperty(const std::string & prop_name)
+{
+  // Reserve the storages for the property up to the requested state
+  // If the storages were already reserved, it will do nothing
+  for (unsigned int s = 0; s <= state; ++s)
+  {
+    auto shell = std::make_shared<Moose::Kokkos::MaterialProperty<T, dimension>>();
+
+    addKokkosPropertyHelper(prop_name, typeid(T), state, shell);
+
+    // Only instantiate load and store functions for stateful properties to avoid requiring users
+    // to provide custom dataLoad and dataStore for non-trivially-copyable types that are never
+    // used as stateful properties
+    if constexpr (state > 0)
+      kokkosRegisterLoadStoreHelper(shell->propertyType(),
+                                    Moose::Kokkos::propertyStore<T, dimension>,
+                                    Moose::Kokkos::propertyLoad<T, dimension>);
+  }
+
+  auto & prop_base = getKokkosPropertyHelper(prop_name, state, nullptr);
+  auto prop_cast = dynamic_cast<Moose::Kokkos::MaterialProperty<T, dimension> *>(&prop_base);
+
+  if (!prop_cast)
+    mooseError("The requested ",
+               dimension,
+               "D Kokkos material property '",
+               prop_name,
+               "' of type '",
+               MooseUtils::prettyCppType<T>(),
+               "' was already declared or requested as a ",
+               prop_base.dim(),
+               "D property of type '",
+               prop_base.type(),
+               "'.");
+
+  return *prop_cast;
+}
+
+template <typename T, unsigned int dimension>
+Moose::Kokkos::MaterialProperty<T, dimension>
+MaterialData::declareKokkosProperty(const std::string & prop_name,
+                                    const std::vector<unsigned int> & dims,
+                                    const MaterialBase * declarer,
+                                    const bool bnd,
+                                    const bool on_demand,
+                                    const Moose::Kokkos::PropertyConstantOption constant_option)
+{
+  auto shell = std::make_shared<Moose::Kokkos::MaterialProperty<T, dimension>>();
+
+  auto & prop_base = declareKokkosPropertyHelper(
+      prop_name, typeid(T), declarer, dims, bnd, on_demand, constant_option, shell);
+  auto prop_cast = dynamic_cast<Moose::Kokkos::MaterialProperty<T, dimension> *>(&prop_base);
+
+  if (!prop_cast)
+    mooseError("The declared ",
+               dimension,
+               "D Kokkos material property '",
+               prop_name,
+               "' of type '",
+               MooseUtils::prettyCppType<T>(),
+               "' was already declared or requested as a ",
+               prop_base.dim(),
+               "D property of type '",
+               prop_base.type(),
+               "'.");
+
+  return *prop_cast;
+}
+#endif

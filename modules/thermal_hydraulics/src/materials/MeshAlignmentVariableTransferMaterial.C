@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -44,8 +44,7 @@ MeshAlignmentVariableTransferMaterial::MeshAlignmentVariableTransferMaterial(
     _nl_sys(_subproblem.systemBaseNonlinear(/*nl_sys_num=*/0)),
     _serialized_solution(_nl_sys.currentSolution()),
     _paired_variable(
-        _subproblem
-            .getVariable(_tid, getParam<std::string>("paired_variable"), Moose::VAR_NONLINEAR)
+        _subproblem.getVariable(_tid, getParam<std::string>("paired_variable"), Moose::VAR_SOLVER)
             .number()),
     _mesh_alignment(*getParam<MeshAlignment *>("_mesh_alignment")),
     _prop(declareADProperty<Real>(getParam<MaterialPropertyName>("property_name"))),

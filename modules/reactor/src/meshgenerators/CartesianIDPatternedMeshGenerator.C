@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -85,7 +85,7 @@ CartesianIDPatternedMeshGenerator::generate()
   const bool has_assembly_duct = false;
   const std::set<subdomain_id_type> duct_block_ids;
   // asssign reporting IDs to individual elements
-  ReportingIDGeneratorUtils::assignReportingIDs(mesh,
+  ReportingIDGeneratorUtils::assignReportingIDs(*mesh,
                                                 extra_id_index,
                                                 _assign_type,
                                                 _use_exclude_id,

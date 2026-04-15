@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,6 +8,8 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "GeneratedMesh.h"
+
+#include "MooseApp.h"
 
 #include "libmesh/mesh_generation.h"
 #include "libmesh/string_to_enum.h"
@@ -30,8 +32,7 @@ GeneratedMesh::validParams()
   MooseEnum elem_types(LIST_GEOM_ELEM); // no default
 
   MooseEnum dims("1=1 2 3");
-  params.addRequiredParam<MooseEnum>(
-      "dim", dims, "The dimension of the mesh to be generated"); // Make this parameter required
+  params.addRequiredParam<MooseEnum>("dim", dims, "The dimension of the mesh to be generated");
 
   params.addParam<unsigned int>("nx", 1, "Number of elements in the X direction");
   params.addParam<unsigned int>("ny", 1, "Number of elements in the Y direction");
@@ -150,7 +151,7 @@ GeneratedMesh::getMaxInDimension(unsigned int component) const
 std::unique_ptr<MooseMesh>
 GeneratedMesh::safeClone() const
 {
-  return std::make_unique<GeneratedMesh>(*this);
+  return _app.getFactory().copyConstruct(*this);
 }
 
 void

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -52,7 +52,7 @@ public:
    * @param[in] p  pressure
    */
   virtual Real T_sat(Real p) const = 0;
-  virtual DualReal T_sat(const DualReal & p) const;
+  virtual ADReal T_sat(const ADReal & p) const;
 
   /**
    * Computes the saturation pressure at a temperature
@@ -60,7 +60,7 @@ public:
    * @param[in] T  temperature
    */
   virtual Real p_sat(Real T) const = 0;
-  virtual DualReal p_sat(const DualReal & T) const;
+  virtual ADReal p_sat(const ADReal & T) const;
 
   /**
    * Computes dT/dp along the saturation line
@@ -76,7 +76,7 @@ public:
    * @param T  temperature
    */
   virtual Real h_lat(Real p, Real T) const;
-  virtual DualReal h_lat(const DualReal & p, const DualReal & T) const;
+  virtual ADReal h_lat(const ADReal & p, const ADReal & T) const;
 
   /**
    * Returns the latent heat of fusion
@@ -90,7 +90,7 @@ public:
    * @param T  temperature
    */
   virtual Real sigma_from_T(Real T) const;
-  virtual DualReal sigma_from_T(const DualReal & T) const;
+  virtual ADReal sigma_from_T(const ADReal & T) const;
 
   /**
    * Computes dsigma/dT along the saturation line

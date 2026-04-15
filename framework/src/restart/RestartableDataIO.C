@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -11,7 +11,9 @@
 
 #include "MooseApp.h"
 
-const unsigned int RestartableDataIO::CURRENT_BACKUP_FILE_VERSION = 3;
+// 3 - Restart system rewrite
+// 4 - Added advanced stateful restore
+const unsigned int RestartableDataIO::CURRENT_BACKUP_FILE_VERSION = 4;
 
 RestartableDataIO::RestartableDataIO(MooseApp & app, RestartableDataMap & data)
   : PerfGraphInterface(app.perfGraph(), "RestartableDataIO"),

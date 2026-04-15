@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -64,19 +64,14 @@ public:
   virtual void reinitNodesNeighbor(const std::vector<dof_id_type> & nodes) = 0;
 
   /**
-   * Filed type of this variable
+   * Field type of this variable
    */
   virtual Moose::VarFieldType fieldType() const = 0;
 
   /**
-   * @returns true if this is an array variable, false otherwise.
-   */
-  virtual bool isArray() const = 0;
-
-  /**
    * Get the variable name of a component in libMesh
    */
-  std::string componentName(const unsigned int comp) const;
+  const std::string & componentName(const unsigned int comp) const;
 
   /**
    * @returns true if this is a vector-valued element, false otherwise.
@@ -117,6 +112,12 @@ public:
    * @return true if active on all provided subdomains, false otherwise
    */
   bool activeOnSubdomains(const std::set<SubdomainID> & subdomains) const;
+
+  /**
+   * Check if this variable needs a raw vector of gradients at dof-values.
+   * This is mainly used for finite volume variables.
+   */
+  virtual bool needsGradientVectorStorage() const { return false; }
 
   /**
    * Prepare the initial condition
@@ -176,18 +177,18 @@ public:
   /**
    * Insert the currently cached degree of freedom values into the provided \p vector
    */
-  virtual void insert(NumericVector<Number> & vector) = 0;
+  virtual void insert(libMesh::NumericVector<libMesh::Number> & vector) = 0;
 
   /**
    * Insert the currently cached degree of freedom values for a lower-dimensional element into the
    * provided \p vector
    */
-  virtual void insertLower(NumericVector<Number> & vector) = 0;
+  virtual void insertLower(libMesh::NumericVector<libMesh::Number> & vector) = 0;
 
   /**
    * Add the currently cached degree of freedom values into the provided \p vector
    */
-  virtual void add(NumericVector<Number> & vector) = 0;
+  virtual void add(libMesh::NumericVector<libMesh::Number> & vector) = 0;
 
   /**
    * Return phi size

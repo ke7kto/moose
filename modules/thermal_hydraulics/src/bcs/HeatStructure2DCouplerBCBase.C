@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,8 +27,7 @@ HeatStructure2DCouplerBCBase::HeatStructure2DCouplerBCBase(const InputParameters
   : ADIntegratedBC(parameters),
 
     _coupled_variable_number(
-        _subproblem
-            .getVariable(_tid, getParam<std::string>("coupled_variable"), Moose::VAR_NONLINEAR)
+        _subproblem.getVariable(_tid, getParam<std::string>("coupled_variable"), Moose::VAR_SOLVER)
             .number()),
     _mesh_alignment(*getParam<MeshAlignment *>("_mesh_alignment")),
 

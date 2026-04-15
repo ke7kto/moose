@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,6 +19,7 @@ HeatTransferApp::validParams()
   InputParameters params = MooseApp::validParams();
 
   params.set<bool>("use_legacy_material_output") = false;
+  params.set<bool>("use_legacy_initial_residual_evaluation_behavior") = false;
 
   return params;
 }
@@ -40,15 +41,20 @@ HeatTransferApp::registerApps()
   RayTracingApp::registerApps();
 }
 
-static void
-associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
+void
+HeatTransferApp::registerAll(Factory & f, ActionFactory & af, Syntax & syntax)
 {
+  RayTracingApp::registerAll(f, af, syntax);
+  Registry::registerObjectsTo(f, {"HeatTransferApp"});
+  Registry::registerActionsTo(af, {"HeatTransferApp"});
+
   // This registers an action to add the "secondary_flux" vector to the system at the right time
   registerTask("add_secondary_flux_vector", false);
   addTaskDependency("add_secondary_flux_vector", "ready_to_init");
   addTaskDependency("setup_dampers", "add_secondary_flux_vector");
 
-  registerSyntax("HeatConductionFE", "Physics/HeatConduction/FiniteElement/*");
+  registerSyntax("HeatConductionCG", "Physics/HeatConduction/FiniteElement/*");
+  registerSyntax("HeatConductionFV", "Physics/HeatConduction/FiniteVolume/*");
 
   registerSyntaxTask("ThermalContactAction", "ThermalContact/*", "add_aux_kernel");
   registerSyntaxTask("ThermalContactAction", "ThermalContact/*", "add_aux_variable");
@@ -56,19 +62,6 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
   registerSyntaxTask("ThermalContactAction", "ThermalContact/*", "add_dirac_kernel");
   registerSyntaxTask("ThermalContactAction", "ThermalContact/*", "add_material");
   registerSyntaxTask("ThermalContactAction", "ThermalContact/*", "add_secondary_flux_vector");
-
-  registerSyntaxTask(
-      "ThermalContactAction", "Modules/HeatTransfer/ThermalContact/BC/*", "add_aux_kernel");
-  registerSyntaxTask(
-      "ThermalContactAction", "Modules/HeatTransfer/ThermalContact/BC/*", "add_aux_variable");
-  registerSyntaxTask("ThermalContactAction", "Modules/HeatTransfer/ThermalContact/BC/*", "add_bc");
-  registerSyntaxTask(
-      "ThermalContactAction", "Modules/HeatTransfer/ThermalContact/BC/*", "add_dirac_kernel");
-  registerSyntaxTask(
-      "ThermalContactAction", "Modules/HeatTransfer/ThermalContact/BC/*", "add_material");
-  registerSyntaxTask("ThermalContactAction",
-                     "Modules/HeatTransfer/ThermalContact/BC/*",
-                     "add_secondary_flux_vector");
 
   registerSyntaxTask("RadiationTransferAction", "GrayDiffuseRadiation/*", "append_mesh_generator");
   registerSyntaxTask("RadiationTransferAction", "GrayDiffuseRadiation/*", "setup_mesh_complete");
@@ -83,38 +76,6 @@ associateSyntaxInner(Syntax & syntax, ActionFactory & /*action_factory*/)
       "MortarGapHeatTransferAction", "MortarGapHeatTransfer/*", "add_mortar_variable");
   registerSyntaxTask("MortarGapHeatTransferAction", "MortarGapHeatTransfer/*", "add_constraint");
   registerSyntaxTask("MortarGapHeatTransferAction", "MortarGapHeatTransfer/*", "add_user_object");
-}
-
-void
-HeatTransferApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
-{
-  RayTracingApp::registerAll(f, af, s);
-  Registry::registerObjectsTo(f, {"HeatTransferApp"});
-  Registry::registerActionsTo(af, {"HeatTransferApp"});
-  associateSyntaxInner(s, af);
-}
-
-void
-HeatTransferApp::registerObjects(Factory & factory)
-{
-  mooseDeprecated("use registerAll instead of registerObjects");
-  RayTracingApp::registerObjects(factory);
-  Registry::registerObjectsTo(factory, {"HeatTransferApp"});
-}
-
-void
-HeatTransferApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
-{
-  mooseDeprecated("use registerAll instead of associateSyntax");
-  RayTracingApp::associateSyntax(syntax, action_factory);
-  Registry::registerActionsTo(action_factory, {"HeatTransferApp"});
-  associateSyntaxInner(syntax, action_factory);
-}
-
-void
-HeatTransferApp::registerExecFlags(Factory & /*factory*/)
-{
-  mooseDeprecated("Do not use registerExecFlags, apps no longer require flag registration");
 }
 
 extern "C" void

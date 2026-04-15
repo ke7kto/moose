@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,6 +21,15 @@ SideIntegralPostprocessor::validParams()
 SideIntegralPostprocessor::SideIntegralPostprocessor(const InputParameters & parameters)
   : SidePostprocessor(parameters), _qp(0), _integral_value(0), _qp_integration(true)
 {
+}
+
+void
+SideIntegralPostprocessor::initialSetup()
+{
+  SidePostprocessor::initialSetup();
+
+  if (!_qp_integration && _mesh.isFiniteVolumeInfoDirty())
+    errorNoFaceInfo();
 }
 
 void

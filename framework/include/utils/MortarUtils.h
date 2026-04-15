@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,6 +13,7 @@
 #include "FEProblemBase.h"
 #include "MaterialBase.h"
 #include "MaterialWarehouse.h"
+#include "AutomaticMortarGeneration.h"
 
 #include "libmesh/quadrature.h"
 #include "libmesh/elem.h"
@@ -188,7 +189,7 @@ loopOverMortarSegments(
       if (assembly.needDual())
         mooseAssert(JxW.size() == expected_length, "Fewer than expected JxW values computed");
 #endif
-    }
+    } // end loop over msm_elems
 
     // Reinit dual shape coeffs if dual shape functions needed
     // lindsayad: is there any need to make sure we do this on both reference and displaced?
@@ -246,13 +247,8 @@ loopOverMortarSegments(
       // it's safest to keep making calls on fe_problem instead of subproblem
 
       // reinit the variables/residuals/jacobians on the secondary interior
-      fe_problem.reinitElemFaceRef(reinit_secondary_elem,
-                                   secondary_side_id,
-                                   secondary_boundary_id,
-                                   TOLERANCE,
-                                   &xi1_pts,
-                                   nullptr,
-                                   tid);
+      fe_problem.reinitElemFaceRef(
+          reinit_secondary_elem, secondary_side_id, TOLERANCE, &xi1_pts, nullptr, tid);
 
       const Elem * reinit_primary_elem = primary_ip;
 
@@ -262,13 +258,8 @@ loopOverMortarSegments(
         reinit_primary_elem = fe_problem.mesh().elemPtr(reinit_primary_elem->id());
 
       // reinit the variables/residuals/jacobians on the primary interior
-      fe_problem.reinitNeighborFaceRef(reinit_primary_elem,
-                                       primary_side_id,
-                                       primary_boundary_id,
-                                       TOLERANCE,
-                                       &xi2_pts,
-                                       nullptr,
-                                       tid);
+      fe_problem.reinitNeighborFaceRef(
+          reinit_primary_elem, primary_side_id, TOLERANCE, &xi2_pts, nullptr, tid);
 
       // reinit neighbor materials, but be careful not to execute stateful materials since
       // conceptually they don't make sense with mortar (they're not interpolary)

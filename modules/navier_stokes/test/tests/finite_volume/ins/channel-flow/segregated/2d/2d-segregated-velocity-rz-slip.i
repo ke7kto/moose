@@ -40,18 +40,18 @@ pressure_tag = "pressure_grad"
   [vel_x]
     type = INSFVVelocityVariable
     initial_condition = 0.5
-    nl_sys = u_system
+    solver_sys = u_system
     two_term_boundary_expansion = false
   []
   [vel_y]
     type = INSFVVelocityVariable
     initial_condition = 0.0
-    nl_sys = v_system
+    solver_sys = v_system
     two_term_boundary_expansion = false
   []
   [pressure]
     type = INSFVPressureVariable
-    nl_sys = pressure_system
+    solver_sys = pressure_system
     initial_condition = 0.2
     two_term_boundary_expansion = false
   []
@@ -81,11 +81,15 @@ pressure_tag = "pressure_grad"
     extra_vector_tags = ${pressure_tag}
   []
   [u_friction]
-    type = INSFVMomentumFriction
+    type = PINSFVMomentumFriction
     variable = vel_x
-    momentum_component = 'y'
-    linear_coef_name = 'Darcy_coefficient'
-    quadratic_coef_name = 'Forchheimer_coefficient'
+    u = vel_x
+    v = vel_y
+    momentum_component = 'x'
+    Darcy_name = 'Darcy_coefficient'
+    Forchheimer_name = 'Forchheimer_coefficient'
+    standard_friction_formulation = false
+    rho = ${rho}
   []
   [v_advection]
     type = INSFVMomentumAdvection
@@ -109,11 +113,15 @@ pressure_tag = "pressure_grad"
     extra_vector_tags = ${pressure_tag}
   []
   [v_friction]
-    type = INSFVMomentumFriction
+    type = PINSFVMomentumFriction
     variable = vel_y
+    u = vel_x
+    v = vel_y
     momentum_component = 'y'
-    linear_coef_name = 'Darcy_coefficient'
-    quadratic_coef_name = 'Forchheimer_coefficient'
+    Darcy_name = 'Darcy_coefficient'
+    Forchheimer_name = 'Forchheimer_coefficient'
+    standard_friction_formulation = false
+    rho = ${rho}
   []
   [p_diffusion]
     type = FVAnisotropicDiffusion
@@ -134,13 +142,13 @@ pressure_tag = "pressure_grad"
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = vel_x
-    function = '1.1'
+    functor = '1.1'
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = vel_y
-    function = '0.0'
+    functor = '0.0'
   []
   [walls-u]
     type = INSFVNaturalFreeSlipBC
@@ -187,14 +195,14 @@ pressure_tag = "pressure_grad"
 
 [FunctorMaterials]
   [darcy]
-    type = ADGenericFunctorMaterial
+    type = ADGenericVectorFunctorMaterial
     prop_names = 'Darcy_coefficient Forchheimer_coefficient'
-    prop_values = '0.1 0.1'
+    prop_values = '0.1 0.1 0.1 0.1 0.1 0.1'
   []
 []
 
 [Executioner]
-  type = SIMPLE
+  type = SIMPLENonlinearAssembly
   momentum_l_abs_tol = 1e-14
   pressure_l_abs_tol = 1e-14
   momentum_l_tol = 0
@@ -209,6 +217,7 @@ pressure_tag = "pressure_grad"
   pressure_absolute_tolerance = 1e-13
   momentum_absolute_tolerance = 1e-13
   print_fields = false
+  continue_on_max_its = true
 []
 
 [Outputs]

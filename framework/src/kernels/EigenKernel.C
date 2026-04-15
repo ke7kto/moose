@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -16,6 +16,7 @@
 #include "MooseApp.h"
 #include "MooseEigenSystem.h"
 #include "MooseVariableFE.h"
+#include "FEProblemBase.h"
 
 #include "libmesh/quadrature.h"
 
@@ -91,11 +92,8 @@ EigenKernel::computeResidual()
 
   accumulateTaggedLocalResidual();
   if (_has_save_in)
-  {
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (const auto & var : _save_in)
       var->sys().solution().add_vector(_local_re, var->dofIndices());
-  }
 }
 
 void
@@ -119,7 +117,6 @@ EigenKernel::computeJacobian()
   if (_has_diag_save_in && !_sys.computingScalingJacobian())
   {
     DenseVector<Number> diag = _assembly.getJacobianDiagonal(_local_ke);
-    Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (const auto & var : _diag_save_in)
       var->sys().solution().add_vector(diag, var->dofIndices());
   }
@@ -185,6 +182,13 @@ EigenKernel::enabled() const
   bool flag = MooseObject::enabled();
   if (_eigen)
   {
+    if (!_eigen_sys)
+      mooseError("Eigen kernel ",
+                 name(),
+                 " requires a MooseEigenSystem and was designed to work with old eigenvalue",
+                 " executioners such as 'NonlinearEigen'.  It is suggested to use the new",
+                 " eigenvalue executioner 'Eigenvalue' along with kernel tagging");
+
     if (_is_implicit)
       return flag && (!_eigen_sys->activeOnOld());
     else

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -124,7 +124,7 @@ ShapeUserObject<T>::coupled(const std::string & var_name, unsigned int comp) con
   const auto * var = this->template getVarHelper<MooseVariable>(var_name, comp);
 
   // add to the set of variables for which executeJacobian will be called
-  if (_compute_jacobians && var->kind() == Moose::VAR_NONLINEAR)
+  if (_compute_jacobians && var->kind() == Moose::VAR_SOLVER)
     _jacobian_moose_variables.insert(var);
 
   // return the variable number

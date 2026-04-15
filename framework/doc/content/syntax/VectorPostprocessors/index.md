@@ -27,7 +27,7 @@ Developers are responsible for sizing these vectors as needed.
 
 ## Output
 
-VPP data can vary depending on the type of data being output. Again, the the "sample over line" example mentioned in the introduction,
+VPP data can vary depending on the type of data being output. Again, the "sample over line" example mentioned in the introduction,
 a complete set of values will be generated each time the VPP is executed. The VPP system handles this scenario by creating separate output
 files for each invocation. The form of the output is as follows:
 
@@ -91,6 +91,19 @@ This tells MOOSE that the data is already replicated and there is no need to bro
 ## TimeData
 
 The `time_data` parameter produces an additional CSV file containing just the real time and the corresponding time step for any VectorPostprocessor output information. This file may be useful in producing animations or your simulation results.
+
+## Restore on Rejected Timesteps
+
+When a timestep is rejected due to a failed solve, a failed multiapp solve, or
+any other reason, the timestep is usually repeated, usually with a smaller
+timestep size. However, unlike postprocessors, VPPs are not restored to their
+old values, i.e. before the initial timestep, unless an old value is requested
+by another object. This can cause statefulness in objects dependent on the VPP
+between the repeated timesteps. If you suspect this might be causing
+indeterminate behavior in your simulation, you can check all the data being
+restored between the failed and repeated timestep by setting
+`Problem/`[!param](/Problem/FEProblem/verbose_restore)` = true`.
+
 
 # VectorPostprocessor List
 

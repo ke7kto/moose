@@ -70,7 +70,7 @@ power = 2
   []
 []
 
-[Modules/TensorMechanics/Master]
+[Physics/SolidMechanics/QuasiStatic]
   [all]
     strain = SMALL
     add_variables = true
@@ -191,7 +191,7 @@ power = 2
 [Outputs]
   [out]
     type = Exodus
-    interval = 10
+    time_step_interval = 10
   []
 []
 

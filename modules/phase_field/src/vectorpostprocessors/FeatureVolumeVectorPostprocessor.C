@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -146,7 +146,7 @@ FeatureVolumeVectorPostprocessor::execute()
             _fe_problem.setCurrentSubdomainID(elem, 0);
             _fe_problem.prepare(elem, 0);
             _fe_problem.reinitElem(elem, 0);
-            _fe_problem.reinitElemFace(elem, (*elem_it)->_side, (*elem_it)->_bnd_id, 0);
+            _fe_problem.reinitElemFace(elem, (*elem_it)->_side, 0);
 
             const auto & var_to_features = _feature_counter.getVarToFeatureVector(elem->id());
 

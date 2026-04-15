@@ -44,30 +44,30 @@ pressure_tag = "pressure_grad"
   [superficial_vel_x]
     type = PINSFVSuperficialVelocityVariable
     initial_condition = ${u_inlet}
-    nl_sys = u_system
+    solver_sys = u_system
     two_term_boundary_expansion = false
   []
   [superficial_vel_y]
     type = PINSFVSuperficialVelocityVariable
     initial_condition = 1e-6
-    nl_sys = v_system
+    solver_sys = v_system
     two_term_boundary_expansion = false
   []
   [pressure]
     type = INSFVPressureVariable
     two_term_boundary_expansion = false
-    nl_sys = pressure_system
+    solver_sys = pressure_system
   []
   [T_fluid]
     type = INSFVEnergyVariable
     two_term_boundary_expansion = false
-    nl_sys = energy_system
+    solver_sys = energy_system
     initial_condition = 200
   []
   [T_solid]
     type = MooseVariableFVReal
     two_term_boundary_expansion = false
-    nl_sys = solid_energy_system
+    solver_sys = solid_energy_system
     initial_condition = 200
   []
 []
@@ -186,13 +186,13 @@ pressure_tag = "pressure_grad"
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = superficial_vel_x
-    function = ${u_inlet}
+    functor = ${u_inlet}
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = superficial_vel_y
-    function = 0
+    functor = 0
   []
   [inlet-T]
     type = FVDirichletBC
@@ -266,7 +266,7 @@ pressure_tag = "pressure_grad"
 []
 
 [Executioner]
-  type = SIMPLE
+  type = SIMPLENonlinearAssembly
   momentum_l_abs_tol = 1e-14
   pressure_l_abs_tol = 1e-14
   energy_l_abs_tol = 1e-14
@@ -285,10 +285,10 @@ pressure_tag = "pressure_grad"
   pressure_variable_relaxation = 0.4
   energy_equation_relaxation = 1.0
   num_iterations = 160
-  pressure_absolute_tolerance = 1e-13
-  momentum_absolute_tolerance = 1e-13
-  energy_absolute_tolerance = 1e-13
-  solid_energy_absolute_tolerance = 1e-13
+  pressure_absolute_tolerance = 1e-12
+  momentum_absolute_tolerance = 1e-12
+  energy_absolute_tolerance = 1e-12
+  solid_energy_absolute_tolerance = 1e-12
   print_fields = false
 []
 

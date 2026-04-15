@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,6 +8,7 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "AdvancedConcentricCircleGenerator.h"
+#include "PolygonalMeshGenerationUtils.h"
 
 // C++ includes
 #include <cmath>
@@ -48,6 +49,24 @@ AdvancedConcentricCircleGenerator::AdvancedConcentricCircleGenerator(
     _num_sectors(isParamValid("num_sectors") ? getParam<unsigned int>("num_sectors")
                                              : _azimuthal_angles.size())
 {
+  const unsigned short tri_order = _tri_elem_type == TRI_ELEM_TYPE::TRI3 ? 1 : 2;
+  const unsigned short quad_order = _quad_elem_type == QUAD_ELEM_TYPE::QUAD4 ? 1 : 2;
+  // 1. If the generated mesh has only one ring layer of triangular elements, then no
+  // quad elements are generated;
+  // 2. Otherwise, both types of elements are generated.
+  _order = tri_order;
+  if (_ring_radii.size() == 1 && _ring_intervals.front() == 1 &&
+      _ring_inner_boundary_layer_params.intervals.front() == 0 &&
+      _ring_outer_boundary_layer_params.intervals.front() == 0)
+  {
+    if (tri_order != quad_order)
+      _quad_elem_type = tri_order == 1 ? QUAD_ELEM_TYPE::QUAD4 : QUAD_ELEM_TYPE::QUAD9;
+  }
+  else if (tri_order != quad_order)
+    paramError("tri_element_type",
+               "the element types of triangular and quadrilateral elements must be compatible if "
+               "both types of elements are generated.");
+
   if (_num_sectors == 0)
     paramError(
         "num_sectors",
@@ -167,7 +186,23 @@ std::unique_ptr<MeshBase>
 AdvancedConcentricCircleGenerator::generate()
 {
   std::vector<Real> ring_radii_corr;
-  const Real corr_factor = _preserve_volumes ? radiusCorrectionFactor(_azimuthal_angles) : 1.0;
+  std::vector<Real> mod_azimuthal_angles;
+
+  for (unsigned int i = 1; i < _azimuthal_angles.size(); i++)
+  {
+    mod_azimuthal_angles.push_back(_azimuthal_angles[i - 1]);
+    if (_order == 2)
+      mod_azimuthal_angles.push_back((_azimuthal_angles[i - 1] + _azimuthal_angles[i]) / 2.0);
+  }
+  mod_azimuthal_angles.push_back(_azimuthal_angles.back());
+  if (_order == 2)
+    mod_azimuthal_angles.push_back((_azimuthal_angles.back() + _azimuthal_angles.front() + 360.0) /
+                                   2.0);
+
+  const Real corr_factor =
+      _preserve_volumes
+          ? PolygonalMeshGenerationUtils::radiusCorrectionFactor(mod_azimuthal_angles, true, _order)
+          : 1.0;
 
   for (const auto & ring_radius : _ring_radii)
     ring_radii_corr.push_back(ring_radius * corr_factor);
@@ -210,7 +245,11 @@ AdvancedConcentricCircleGenerator::generate()
                          /* center_quad_factor */ 0.0,
                          _create_inward_interface_boundaries,
                          _create_outward_interface_boundaries,
-                         _interface_boundary_id_shift);
+                         _interface_boundary_id_shift,
+                         1.0,
+                         true,
+                         _tri_elem_type,
+                         _quad_elem_type);
   MeshTools::Modification::rotate(*mesh, -_azimuthal_angles[0], 0, 0);
 
   for (unsigned int i = 1; i < _num_sectors; i++)
@@ -240,13 +279,20 @@ AdvancedConcentricCircleGenerator::generate()
                                /* center_quad_factor */ 0.0,
                                _create_inward_interface_boundaries,
                                _create_outward_interface_boundaries,
-                               _interface_boundary_id_shift);
+                               _interface_boundary_id_shift,
+                               1.0,
+                               true,
+                               _tri_elem_type,
+                               _quad_elem_type);
 
     ReplicatedMesh other_mesh(*mesh_tmp);
     MeshTools::Modification::rotate(other_mesh, -_azimuthal_angles[i], 0, 0);
     mesh->prepare_for_use();
     other_mesh.prepare_for_use();
-    mesh->stitch_meshes(other_mesh, SLICE_BEGIN, SLICE_END, TOLERANCE, true);
+    // As we rotate the mesh in the negative direction (see "-" before _azimuthal_angles[i]),
+    // the order of SLICE_END and SLICE_BEGIN should be reversed compared to the similar call in
+    // PolygonConcentricCircleMeshGeneratorBase.C
+    mesh->stitch_meshes(other_mesh, SLICE_END, SLICE_BEGIN, TOLERANCE, true, false);
     other_mesh.clear();
   }
 
@@ -255,7 +301,7 @@ AdvancedConcentricCircleGenerator::generate()
       mesh->get_boundary_info().remove_id(i + 1 + OUTER_SIDESET_ID_ALT);
 
   // An extra step to stich the first and last slices together
-  mesh->stitch_surfaces(SLICE_BEGIN, SLICE_END, TOLERANCE, true);
+  mesh->stitch_surfaces(SLICE_END, SLICE_BEGIN, TOLERANCE, true, false);
 
   mesh->prepare_for_use();
 
@@ -286,6 +332,6 @@ AdvancedConcentricCircleGenerator::generate()
 
   assignInterfaceBoundaryNames(*mesh);
 
-  mesh->set_isnt_prepared();
+  mesh->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(mesh);
 }
