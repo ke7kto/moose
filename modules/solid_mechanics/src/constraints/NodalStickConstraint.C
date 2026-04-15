@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,6 +21,8 @@
 
 // C++ includes
 #include <limits.h>
+
+using namespace libMesh;
 
 registerMooseObject("SolidMechanicsApp", NodalStickConstraint);
 
@@ -190,7 +192,7 @@ NodalStickConstraint::updateConstrainedNodes()
 }
 
 void
-NodalStickConstraint::computeJacobian(SparseMatrix<Number> & jacobian)
+NodalStickConstraint::computeJacobian(const SparseMatrix<Number> & jacobian)
 {
   // Calculate Jacobian enteries and cache those entries along with the row and column indices
   std::vector<dof_id_type> secondarydof = _var.dofIndicesNeighbor();
@@ -234,7 +236,7 @@ NodalStickConstraint::computeJacobian(SparseMatrix<Number> & jacobian)
 }
 
 void
-NodalStickConstraint::computeResidual(NumericVector<Number> & residual)
+NodalStickConstraint::computeResidual(const NumericVector<Number> & residual)
 {
   std::vector<dof_id_type> primarydof = _var.dofIndices();
   std::vector<dof_id_type> secondarydof = _var.dofIndicesNeighbor();

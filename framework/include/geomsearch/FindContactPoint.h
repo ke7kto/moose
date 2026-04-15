@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,8 +8,10 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #pragma once
+
 // Moose
 #include "Moose.h"
+#include "MooseTypes.h"
 
 // Forward declarations
 class PenetrationInfo;
@@ -28,13 +30,16 @@ namespace Moose
 {
 
 void findContactPoint(PenetrationInfo & p_info,
-                      FEBase * fe_elem,
-                      FEBase * fe_side,
-                      FEType & fe_side_type,
-                      const Point & secondary_point,
+                      libMesh::FEBase * fe_elem,
+                      libMesh::FEBase * fe_side,
+                      libMesh::FEType & fe_side_type,
+                      const libMesh::Point & secondary_point,
                       bool start_with_centroid,
                       const Real tangential_tolerance,
-                      bool & contact_point_on_side);
+                      bool & contact_point_on_side,
+                      bool & search_succeeded);
 
-void restrictPointToFace(Point & p, const Elem * side, std::vector<const Node *> & off_edge_nodes);
+void restrictPointToFace(libMesh::Point & p,
+                         const libMesh::Elem * side,
+                         std::vector<const libMesh::Node *> & off_edge_nodes);
 }

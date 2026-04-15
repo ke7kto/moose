@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,6 +19,7 @@
 #include "RankFourTensor.h"
 #include "ColumnMajorMatrix.h"
 #include "UniqueStorage.h"
+#include "TwoVector.h"
 
 #include "libmesh/parallel.h"
 #include "libmesh/parameters.h"
@@ -35,6 +36,7 @@
 #include <iostream>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 #include <optional>
 
@@ -49,6 +51,7 @@ class VectorValue;
 template <typename T>
 class TensorValue;
 class Elem;
+class FEType;
 class Point;
 }
 
@@ -191,7 +194,6 @@ dataStore(std::ostream & stream, T & v, void * /*context*/)
                 "dataStore() template specialization!\n\n");
 #endif
 
-  // Moose::out<<"Generic dataStore"<<std::endl;
   stream.write((char *)&v, sizeof(v));
   mooseAssert(!stream.bad(), "Failed to store");
 }
@@ -201,7 +203,7 @@ inline void
 dataStore(std::ostream & /*stream*/, T *& /*v*/, void * /*context*/)
 {
   mooseError("Attempting to store a raw pointer type: \"",
-             demangle(typeid(T).name()),
+             libMesh::demangle(typeid(T).name()),
              " *\" as restartable data!\nWrite a custom dataStore() template specialization!\n\n");
 }
 
@@ -343,6 +345,18 @@ dataStore(std::ostream & stream, std::unordered_map<T, U> & m, void * context)
 
 template <typename T>
 inline void
+dataStore(std::ostream & stream, std::unordered_set<T> & s, void * context)
+{
+  // First store the size of the set
+  std::size_t size = s.size();
+  dataStore(stream, size, nullptr);
+
+  for (auto & element : s)
+    dataStore(stream, element, context);
+}
+
+template <typename T>
+inline void
 dataStore(std::ostream & stream, std::optional<T> & m, void * context)
 {
   bool has_value = m.has_value();
@@ -373,6 +387,29 @@ dataStore(std::ostream & stream, HashMap<T, U> & m, void * context)
   }
 }
 
+template <typename T, int Rows, int Cols>
+void
+dataStore(std::ostream & stream, Eigen::Matrix<T, Rows, Cols> & v, void * context)
+{
+  auto m = cast_int<unsigned int>(v.rows());
+  dataStore(stream, m, context);
+  auto n = cast_int<unsigned int>(v.cols());
+  dataStore(stream, n, context);
+  for (const auto i : make_range(m))
+    for (const auto j : make_range(n))
+    {
+      auto & r = v(i, j);
+      dataStore(stream, r, context);
+    }
+}
+
+template <typename T>
+void
+dataStore(std::ostream & stream, GenericTwoVector<T> & v, void * context)
+{
+  dataStore(stream, static_cast<Eigen::Matrix<T, 2, 1> &>(v), context);
+}
+
 // Specializations (defined in .C)
 template <>
 void dataStore(std::ostream & stream, Real & v, void * context);
@@ -381,7 +418,11 @@ void dataStore(std::ostream & stream, std::string & v, void * context);
 template <>
 void dataStore(std::ostream & stream, VariableName & v, void * context);
 template <>
+void dataStore(std::ostream & stream, UserObjectName & v, void * context);
+template <>
 void dataStore(std::ostream & stream, bool & v, void * context);
+template <>
+void dataStore(std::ostream & stream, libMesh::FEType & v, void * context);
 // Vectors of bools are special
 // https://en.wikipedia.org/w/index.php?title=Sequence_container_(C%2B%2B)&oldid=767869909#Specialization_for_bool
 template <>
@@ -399,11 +440,8 @@ void dataStore(std::ostream & stream, std::stringstream & s, void * context);
 template <>
 void dataStore(std::ostream & stream, ADReal & dn, void * context);
 template <>
-void dataStore(std::ostream & stream, RealEigenVector & v, void * context);
-template <>
-void dataStore(std::ostream & stream, RealEigenMatrix & v, void * context);
-template <>
 void dataStore(std::ostream & stream, libMesh::Parameters & p, void * context);
+
 template <>
 /**
  * Stores an owned numeric vector.
@@ -416,7 +454,7 @@ template <>
  * cannot be ghosted, and the provided context must be the Communicator.
  */
 void dataStore(std::ostream & stream,
-               std::unique_ptr<libMesh::NumericVector<Number>> & v,
+               std::unique_ptr<libMesh::NumericVector<libMesh::Number>> & v,
                void * context);
 
 template <std::size_t N>
@@ -437,7 +475,7 @@ dataStore(std::ostream & stream, ADReal (&dn)[N], void * context)
 
 template <typename T>
 void
-dataStore(std::ostream & stream, NumericVector<T> & v, void * context)
+dataStore(std::ostream & stream, libMesh::NumericVector<T> & v, void * context)
 {
   v.close();
 
@@ -467,13 +505,13 @@ dataStore(std::ostream & stream, DenseVector<T> & v, void * context)
 }
 
 template <typename T>
-void dataStore(std::ostream & stream, TensorValue<T> & v, void * context);
+void dataStore(std::ostream & stream, libMesh::TensorValue<T> & v, void * context);
 
 template <typename T>
-void dataStore(std::ostream & stream, DenseMatrix<T> & v, void * context);
+void dataStore(std::ostream & stream, libMesh::DenseMatrix<T> & v, void * context);
 
 template <typename T>
-void dataStore(std::ostream & stream, VectorValue<T> & v, void * context);
+void dataStore(std::ostream & stream, libMesh::VectorValue<T> & v, void * context);
 
 template <typename T>
 void
@@ -532,7 +570,7 @@ void
 dataLoad(std::istream & /*stream*/, T *& /*v*/, void * /*context*/)
 {
   mooseError("Attempting to load a raw pointer type: \"",
-             demangle(typeid(T).name()),
+             libMesh::demangle(typeid(T).name()),
              " *\" as restartable data!\nWrite a custom dataLoad() template specialization!\n\n");
 }
 
@@ -666,6 +704,25 @@ dataLoad(std::istream & stream, std::unordered_map<T, U> & m, void * context)
 
 template <typename T>
 inline void
+dataLoad(std::istream & stream, std::unordered_set<T> & s, void * context)
+{
+  s.clear();
+
+  // First read the size of the set
+  std::size_t size = 0;
+  dataLoad(stream, size, nullptr);
+  s.reserve(size);
+
+  for (std::size_t i = 0; i < size; i++)
+  {
+    T element;
+    dataLoad(stream, element, context);
+    s.insert(element);
+  }
+}
+
+template <typename T>
+inline void
 dataLoad(std::istream & stream, std::optional<T> & m, void * context)
 {
   bool has_value;
@@ -698,6 +755,31 @@ dataLoad(std::istream & stream, HashMap<T, U> & m, void * context)
   }
 }
 
+template <typename T, int Rows, int Cols>
+void
+dataLoad(std::istream & stream, Eigen::Matrix<T, Rows, Cols> & v, void * context)
+{
+  unsigned int m = 0;
+  dataLoad(stream, m, context);
+  unsigned int n = 0;
+  dataLoad(stream, n, context);
+  v.resize(m, n);
+  for (const auto i : make_range(m))
+    for (const auto j : make_range(n))
+    {
+      T r{};
+      dataLoad(stream, r, context);
+      v(i, j) = r;
+    }
+}
+
+template <typename T>
+void
+dataLoad(std::istream & stream, GenericTwoVector<T> & v, void * context)
+{
+  dataLoad(stream, static_cast<Eigen::Matrix<T, 2, 1> &>(v), context);
+}
+
 // Specializations (defined in .C)
 template <>
 void dataLoad(std::istream & stream, Real & v, void * /*context*/);
@@ -706,7 +788,11 @@ void dataLoad(std::istream & stream, std::string & v, void * /*context*/);
 template <>
 void dataLoad(std::istream & stream, VariableName & v, void * /*context*/);
 template <>
+void dataLoad(std::istream & stream, UserObjectName & v, void * /*context*/);
+template <>
 void dataLoad(std::istream & stream, bool & v, void * /*context*/);
+template <>
+void dataLoad(std::istream & stream, libMesh::FEType & v, void * /*context*/);
 // Vectors of bools are special
 // https://en.wikipedia.org/w/index.php?title=Sequence_container_(C%2B%2B)&oldid=767869909#Specialization_for_bool
 template <>
@@ -723,10 +809,6 @@ template <>
 void dataLoad(std::istream & stream, std::stringstream & s, void * context);
 template <>
 void dataLoad(std::istream & stream, ADReal & dn, void * context);
-template <>
-void dataLoad(std::istream & stream, RealEigenVector & v, void * context);
-template <>
-void dataLoad(std::istream & stream, RealEigenMatrix & v, void * context);
 template <>
 void dataLoad(std::istream & stream, libMesh::Parameters & p, void * context);
 template <>
@@ -748,7 +830,7 @@ template <>
  * and local sizes that the vector was stored with.
  */
 void dataLoad(std::istream & stream,
-              std::unique_ptr<libMesh::NumericVector<Number>> & v,
+              std::unique_ptr<libMesh::NumericVector<libMesh::Number>> & v,
               void * context);
 
 template <std::size_t N>
@@ -769,7 +851,7 @@ dataLoad(std::istream & stream, ADReal (&dn)[N], void * context)
 
 template <typename T>
 void
-dataLoad(std::istream & stream, NumericVector<T> & v, void * context)
+dataLoad(std::istream & stream, libMesh::NumericVector<T> & v, void * context)
 {
   numeric_index_type size = v.local_size();
   for (numeric_index_type i = v.first_local_index(); i < v.first_local_index() + size; i++)
@@ -800,13 +882,13 @@ dataLoad(std::istream & stream, DenseVector<T> & v, void * context)
 }
 
 template <typename T>
-void dataLoad(std::istream & stream, TensorValue<T> & v, void * context);
+void dataLoad(std::istream & stream, libMesh::TensorValue<T> & v, void * context);
 
 template <typename T>
-void dataLoad(std::istream & stream, DenseMatrix<T> & v, void * context);
+void dataLoad(std::istream & stream, libMesh::DenseMatrix<T> & v, void * context);
 
 template <typename T>
-void dataLoad(std::istream & stream, VectorValue<T> & v, void * context);
+void dataLoad(std::istream & stream, libMesh::VectorValue<T> & v, void * context);
 
 template <typename T>
 void

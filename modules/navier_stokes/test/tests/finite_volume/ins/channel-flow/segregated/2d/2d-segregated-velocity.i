@@ -117,13 +117,13 @@ pressure_tag = "pressure_grad"
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = u
-    function = '1.1'
+    functor = '1.1'
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = v
-    function = '0.0'
+    functor = '0.0'
   []
   [walls-u]
     type = INSFVNoSlipWallBC
@@ -152,7 +152,7 @@ pressure_tag = "pressure_grad"
 []
 
 [Executioner]
-  type = SIMPLE
+  type = SIMPLENonlinearAssembly
   momentum_l_abs_tol = 1e-14
   pressure_l_abs_tol = 1e-14
   momentum_l_tol = 0

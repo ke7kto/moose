@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,7 @@
 #include "SideSetsAroundSubdomainGenerator.h"
 #include "InputParameters.h"
 #include "MooseTypes.h"
+#include "MeshTraversingUtils.h"
 #include "MooseMeshUtils.h"
 #include "CastUniquePointer.h"
 
@@ -28,7 +29,9 @@ SideSetsAroundSubdomainGenerator::validParams()
   params.renameParam("included_subdomains", "block", "The blocks around which to create sidesets");
   params.makeParamRequired<std::vector<SubdomainName>>("block");
 
+  // Not implemented, but could be implemented
   params.suppressParameter<std::vector<BoundaryName>>("included_boundaries");
+  params.suppressParameter<std::vector<BoundaryName>>("excluded_boundaries");
   params.suppressParameter<std::vector<SubdomainName>>("included_neighbors");
 
   params.addClassDescription(
@@ -66,16 +69,20 @@ SideSetsAroundSubdomainGenerator::generate()
   typedef std::vector<std::pair<dof_id_type, unsigned int>> vec_type;
   std::vector<vec_type> queries(my_n_proc);
 
+  // Request to compute normal vectors
+  const std::vector<Point> & face_normals = _fe_face->get_normals();
+
   // Loop over the elements
   for (const auto & elem : mesh->active_element_ptr_range())
   {
     // We only need to loop over elements in the source subdomain
-    if (_check_subdomains && !elementSubdomainIdInList(elem, _included_subdomain_ids))
+    if (_check_subdomains &&
+        !MeshTraversingUtils::elementSubdomainIdInList(elem, _included_subdomain_ids))
       continue;
 
     for (const auto side : make_range(elem->n_sides()))
     {
-      const Elem * neighbor = elem->neighbor_ptr(side);
+      const auto * neighbor = elem->neighbor_ptr(side);
 
       // On a replicated mesh, we add all subdomain sides ourselves.
       // On a distributed mesh, we may have missed sides which
@@ -88,7 +95,7 @@ SideSetsAroundSubdomainGenerator::generate()
       {
         _fe_face->reinit(elem, side);
         // We'll just use the normal of the first qp
-        const Point & face_normal = _fe_face->get_normals()[0];
+        const Point & face_normal = face_normals[0];
         // Add the boundaries, if appropriate
         if (elemSideSatisfiesRequirements(elem, side, *mesh, _normal, face_normal))
         {
@@ -179,7 +186,7 @@ SideSetsAroundSubdomainGenerator::generate()
   for (unsigned int i = 0; i < boundary_ids.size(); ++i)
     boundary_info.sideset_name(boundary_ids[i]) = _boundary_names[i];
 
-  mesh->set_isnt_prepared();
+  mesh->unset_is_prepared();
   return dynamic_pointer_cast<MeshBase>(mesh);
 }
 

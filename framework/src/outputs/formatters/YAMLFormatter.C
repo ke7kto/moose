@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -100,6 +100,20 @@ YAMLFormatter::printParams(const std::string & prefix,
     std::string group_name = params.getGroupName(iter.first);
     if (!group_name.empty())
       oss << "'" << group_name << "'";
+    oss << "\n";
+
+    oss << indent << "    doc_unit: ";
+    std::string doc_unit = params.getDocUnit(iter.first);
+    if (!doc_unit.empty())
+      oss << "'" << doc_unit << "'";
+    oss << "\n";
+
+    oss << indent << "    doc_range: ";
+    std::string doc_range;
+    if (params.isRangeChecked(iter.first))
+      doc_range = params.rangeCheckedFunction(iter.first);
+    if (!doc_range.empty())
+      oss << "'" << doc_range << "'";
     oss << "\n";
 
     if (params.have_parameter<MooseEnum>(name))

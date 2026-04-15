@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -19,6 +19,8 @@
 class SubProblem;
 class FEProblemBase;
 
+namespace SparsityPattern = libMesh::SparsityPattern;
+
 class SolverSystem : public SystemBase
 {
 public:
@@ -28,7 +30,7 @@ public:
                Moose::VarKindType var_kind);
   virtual ~SolverSystem();
 
-  virtual void init() override;
+  virtual void preInit() override;
   virtual void restoreSolutions() override final;
 
   void serializeSolution();
@@ -36,13 +38,46 @@ public:
   /**
    * Quit the current solve as soon as possible.
    */
-  virtual void stopSolve(const ExecFlagType & exec_flag) = 0;
+  virtual void stopSolve(const ExecFlagType & exec_flag,
+                         const std::set<TagID> & vector_tags_to_close) = 0;
+
+  /**
+   * Returns the convergence state
+   * @return true if converged, otherwise false
+   */
+  virtual bool converged() = 0;
+
+  /**
+   * If the system has a kernel that corresponds to a time derivative
+   */
+  virtual bool containsTimeKernel() = 0;
+
+  /**
+   * Returns the names of the variables that have time derivative kernels
+   * in the system.
+   */
+  virtual std::vector<std::string> timeKernelVariableNames() = 0;
 
   /**
    * Set the solution to a given vector.
    * @param soln The vector which should be treated as the solution.
    */
   void setSolution(const NumericVector<Number> & soln);
+
+  /**
+   * Enable solution under/over-relaxation for fixed point iterations.
+   *
+   * Intended for segregated multi-system fixed point iterations where the system is solved
+   * repeatedly with coefficients that depend on other systems/loops (e.g. deferred correction).
+   * A value of 1 disables relaxation.
+   *
+   * The relaxed update is:
+   *   u <- relaxation_factor * u_new + (1 - relaxation_factor) * u_old
+   */
+  void setFixedPointRelaxationFactor(const Real relaxation_factor);
+  void clearFixedPointRelaxation();
+  void saveOldSolutionForFixedPointRelaxation();
+  void applyFixedPointRelaxation();
 
   /**
    * Set the side on which the preconditioner is applied to.
@@ -91,6 +126,9 @@ protected:
 
   /// Boolean to see if solution is invalid
   bool _solution_is_invalid;
+
+  /// Used for relaxing entire system solution during fixed point (multi-)system iterations
+  Real _fixed_point_relaxation_factor = 1.0;
 };
 
 inline const NumericVector<Number> * const &

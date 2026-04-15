@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -37,7 +37,7 @@ public:
    * Set the current FaceInfo object
    * @param face_info The face info which will be used as current face info
    */
-  void setCurrentFaceInfo(const FaceInfo * face_info);
+  virtual void setupFaceData(const FaceInfo * face_info);
 
   /**
    * Set the coordinate system specific face area for the assembly
@@ -69,6 +69,11 @@ public:
    */
   virtual Real computeBoundaryRHSContribution(const LinearFVBoundaryCondition & bc) = 0;
 
+  /**
+   * Computes the flux from this kernel on a boundary
+   */
+  virtual Real computeBoundaryFlux(const LinearFVBoundaryCondition & bc);
+
 protected:
   /**
    * Determine the single sided face argument when evaluating a functor on a face.
@@ -98,4 +103,17 @@ protected:
   /// If we already built the right hand side contribution. This switch can be used to
   /// check if cached quantities are already available in the kernel.
   bool _cached_rhs_contribution;
+
+  /// Whether to force execution of this kernel on all external boundaries
+  const bool _force_boundary_execution;
+
+  /// A vector of dof indices that describe where to add the
+  /// matrix and right hand side batch contribution
+  DenseVector<dof_id_type> _dof_indices;
+
+  /// Cache for a batch of matrix contributions for faster assembly
+  DenseMatrix<Real> _matrix_contribution;
+
+  /// Cache for a batch of vector contributions for faster assembly
+  DenseVector<Real> _rhs_contribution;
 };

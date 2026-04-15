@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -55,12 +55,12 @@ MooseParsedFunctionBase::MooseParsedFunctionBase(const InputParameters & paramet
   for (const auto & var : _vars)
     if (var.find_first_of("xyzt") != std::string::npos && var.size() == 1)
       mooseError("The variables \"x, y, z, and t\" in the ParsedFunction are pre-declared for use "
-                 "and must not be declared in \"vars\"");
+                 "and must not be declared in \"symbol_names\"");
 }
 
 MooseParsedFunctionBase::~MooseParsedFunctionBase() {}
 
-const std::string
+std::string
 MooseParsedFunctionBase::verifyFunction(const std::string & function_str)
 {
   // Throws an error if quotes are found

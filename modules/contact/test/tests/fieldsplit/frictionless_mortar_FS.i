@@ -18,7 +18,7 @@ refine = 1
   uniform_refine = ${refine}
 []
 
-[Modules/TensorMechanics/Master]
+[Physics/SolidMechanics/QuasiStatic]
   [all]
     strain = FINITE
     incremental = true
@@ -31,11 +31,11 @@ refine = 1
 [Functions]
   [horizontal_movement]
     type = ParsedFunction
-    value = 'if(t<0.5,${vx}*t-${offset},${vx}-${offset})'
+    expression = 'if(t<0.5,${vx}*t-${offset},${vx}-${offset})'
   []
   [vertical_movement]
     type = ParsedFunction
-    value = 'if(t<0.5,${offset},${vy}*(t-0.5)+${offset})'
+    expression = 'if(t<0.5,${offset},${vy}*(t-0.5)+${offset})'
   []
 []
 

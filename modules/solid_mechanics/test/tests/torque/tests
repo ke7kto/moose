@@ -7,6 +7,8 @@
     exodiff = 'torque_small_out.e'
     abs_zero = 1e-9
     requirement = 'The mechanics system shall provide a way to apply a torque to a boundary for small strain simulations.'
+    # machine=x86_64: see #26848
+    capabilities = 'method!=dbg & machine=x86_64'
   []
   [ad]
     type = Exodiff
@@ -14,5 +16,7 @@
     exodiff = 'ad_torque_small_out.e'
     abs_zero = 1e-9
     requirement = 'The mechanics system shall provide a way to apply a torque to a boundary for small strain simulations with automatic differentiation.'
+    # machine=x86_64: see #26848
+    capabilities = 'method!=dbg & machine=x86_64'
   []
 []

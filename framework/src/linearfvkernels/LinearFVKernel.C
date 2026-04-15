@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,6 +10,8 @@
 #include "LinearFVKernel.h"
 #include "Assembly.h"
 #include "SubProblem.h"
+#include "FEProblemBase.h"
+#include "PetscSupport.h"
 
 InputParameters
 LinearFVKernel::validParams()
@@ -33,7 +35,20 @@ LinearFVKernel::LinearFVKernel(const InputParameters & params)
                            Moose::VarKindType::VAR_SOLVER,
                            Moose::VarFieldType::VAR_FIELD_STANDARD),
     MooseVariableDependencyInterface(this),
-    _var(*mooseLinearVariableFV())
+    _var(*mooseLinearVariableFV()),
+    _var_num(_var.number()),
+    _sys_num(_sys.number())
 {
   addMooseVariableDependency(&_var);
+
+  // LinearFV does not need SNES options, not adding them will avoid petsc
+  // unused option warnings.
+  Moose::PetscSupport::dontAddCommonSNESOptions(_fe_problem);
+}
+
+void
+LinearFVKernel::requestVariableCellGradient(const std::string & var_name)
+{
+  dynamic_cast<MooseLinearVariableFV<Real> *>(&_fe_problem.getStandardVariable(_tid, var_name))
+      ->computeCellGradients();
 }

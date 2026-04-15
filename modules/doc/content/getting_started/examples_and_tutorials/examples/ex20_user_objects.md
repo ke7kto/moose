@@ -8,7 +8,7 @@ To achieve this, we need 3 objects working together :
 -  `BlockAverageDiffusionMaterial` : A `Material` that computes "diffusivity" based on the average value of a variable as computes by a `BlockAverageValue` `UserObject`.
 -  `ExampleDiffusion` : The same `Kernel` we have seen before that uses a "diffusivity" material property. The main purpose of this class is to provide the `averageValue` method that accepts a `SubdomainID`, which is simply an integer value specifying which block of the mesh to perform the average value calculation.
 
-[](---)
+
 
 ## Create BlockAverageValue UserObject
 
@@ -18,7 +18,7 @@ The first step is to create a `UserObject` for computing the average value of a 
 
 [BlockAverageValue.C](https://github.com/idaholab/moose/blob/devel/examples/ex20_user_objects/src/userobjects/BlockAverageValue.C)
 
-[](---)
+
 
 ## Create BlockAverageDiffusionMaterial Material
 
@@ -28,7 +28,7 @@ The second step is to create the Material object that will utilize the block ave
 
 [BlockAverageDiffusionMaterial.C](https://github.com/idaholab/moose/blob/devel/examples/ex20_user_objects/src/materials/BlockAverageDiffusionMaterial.C)
 
-[](---)
+
 
 ## Create ExampleDiffusion Kernel
 
@@ -38,7 +38,7 @@ In order to utilize the "diffusivity" material property a Kernel that uses a mat
 
 [ExampleDiffusion.C](https://github.com/idaholab/moose/blob/devel/examples/ex20_user_objects/src/kernels/ExampleDiffusion.C)
 
-[](---)
+
 
 ## Running the Problem
 
@@ -50,7 +50,7 @@ make -j8
 ./ex20-opt -i ex20.i
 ```
 
-This will generate the results file, ex2_out.e, as shown in Figure 1 and 2. This file may be viewed using Peacock or an external application that supports the Exodus II format (e.g., Paraview).
+This will generate the results file, ex2_out.e, as shown in Figure 1 and 2. This file may be viewed using Peacock or an external application that supports the Exodus format (e.g., Paraview).
 
 !media large_media/examples/ex20_out_4.png
        caption=Figure 1 : Example 20 results after four time steps
@@ -61,7 +61,7 @@ This will generate the results file, ex2_out.e, as shown in Figure 1 and 2. This
        style=width:50%;
 
 
-[](---)
+
 
 ## Complete Input Files
 

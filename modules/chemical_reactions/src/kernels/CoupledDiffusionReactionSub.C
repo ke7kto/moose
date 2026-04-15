@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -8,6 +8,8 @@
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
 #include "CoupledDiffusionReactionSub.h"
+
+using libMesh::RealGradient;
 
 registerMooseObject("ChemicalReactionsApp", CoupledDiffusionReactionSub);
 
@@ -20,7 +22,7 @@ CoupledDiffusionReactionSub::validParams()
       1.0,
       "Weight of equilibrium species concentration in the primary species concentration");
   params.addCoupledVar(
-      "log_k", 0.0, "Equilibrium constant of the equilbrium reaction in dissociation form");
+      "log_k", 0.0, "Equilibrium constant of the equilibrium reaction in dissociation form");
   params.addParam<Real>("sto_u",
                         1.0,
                         "Stoichiometric coef of the primary species this kernel "

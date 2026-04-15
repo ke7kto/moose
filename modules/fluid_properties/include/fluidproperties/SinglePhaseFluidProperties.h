@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -206,6 +206,7 @@ public:
   propfunc(s, T, v)
   propfunc(cv, T, v)
   propfunc(h, p, T)
+  propfuncWithDefault(h, v, e)
   propfunc(g, v, e)
   propfuncWithDefault(p, h, s)
   propfunc(T, h, p)  // temporary, until uniformization
@@ -298,7 +299,7 @@ public:
    */
   virtual Real vaporPressure(Real T) const;
   virtual void vaporPressure(Real T, Real & psat, Real & dpsat_dT) const;
-  ADReal vaporPressure(const ADReal & T) const;
+  virtual ADReal vaporPressure(const ADReal & T) const;
 
   /**
    * Vapor temperature. Used to delineate liquid and gas phases.
@@ -311,7 +312,7 @@ public:
    */
   virtual Real vaporTemperature(Real p) const;
   virtual void vaporTemperature(Real p, Real & Tsat, Real & dTsat_dp) const;
-  ADReal vaporTemperature(const ADReal & p) const;
+  virtual ADReal vaporTemperature(const ADReal & p) const;
 
   /**
    * Henry's law coefficients for dissolution in water
@@ -437,12 +438,17 @@ protected:
 
   /**
    * Newton's method may be used to convert between variable sets
-   * _tolerance, _T_initial_guess, and _p_initial_guess are the parameters for these
-   * iterative solves
    */
+  /// Relative tolerance of the solves
   const Real _tolerance;
+  /// Initial guess for temperature (or temperature used to compute the initial guess)
   const Real _T_initial_guess;
+  /// Initial guess for pressure (or pressure used to compute the initial guess)
   const Real _p_initial_guess;
+  /// Maximum number of iterations for the variable conversion newton solves
+  const unsigned int _max_newton_its;
+  /// Whether to output information about newton solves to console
+  const bool _verbose_newton;
 
 private:
   void unimplementedDerivativeMethod(const std::string & property_function_name) const
@@ -524,8 +530,19 @@ SinglePhaseFluidProperties::p_T_from_v_e(const CppType & v, // v value
                       CppType & de_dT) { e_from_p_T(pressure, temperature, new_e, de_dp, de_dT); };
   try
   {
-    FluidPropertiesUtils::NewtonSolve2D(
-        v, e, p0, T0, p, T, _tolerance, _tolerance, v_lambda, e_lambda);
+    FluidPropertiesUtils::NewtonSolve2D(v,
+                                        e,
+                                        p0,
+                                        T0,
+                                        p,
+                                        T,
+                                        _tolerance,
+                                        _tolerance,
+                                        v_lambda,
+                                        e_lambda,
+                                        "p_T_from_v_e",
+                                        _max_newton_its,
+                                        _verbose_newton);
     conversion_succeeded = true;
   }
   catch (MooseException &)
@@ -553,8 +570,19 @@ SinglePhaseFluidProperties::p_T_from_v_h(const T & v,     // v value
   { h_from_p_T(pressure, temperature, new_h, dh_dp, dh_dT); };
   try
   {
-    FluidPropertiesUtils::NewtonSolve2D(
-        v, h, p0, T0, pressure, temperature, _tolerance, _tolerance, v_lambda, h_lambda);
+    FluidPropertiesUtils::NewtonSolve2D(v,
+                                        h,
+                                        p0,
+                                        T0,
+                                        pressure,
+                                        temperature,
+                                        _tolerance,
+                                        _tolerance,
+                                        v_lambda,
+                                        h_lambda,
+                                        "p_T_from_v_h",
+                                        _max_newton_its,
+                                        _verbose_newton);
     conversion_succeeded = true;
   }
   catch (MooseException &)
@@ -582,8 +610,19 @@ SinglePhaseFluidProperties::p_T_from_h_s(const T & h,     // h value
   { s_from_p_T(pressure, temperature, new_s, ds_dp, ds_dT); };
   try
   {
-    FluidPropertiesUtils::NewtonSolve2D(
-        h, s, p0, T0, pressure, temperature, _tolerance, _tolerance, h_lambda, s_lambda);
+    FluidPropertiesUtils::NewtonSolve2D(h,
+                                        s,
+                                        p0,
+                                        T0,
+                                        pressure,
+                                        temperature,
+                                        _tolerance,
+                                        _tolerance,
+                                        h_lambda,
+                                        s_lambda,
+                                        "p_T_from_h_s",
+                                        _max_newton_its,
+                                        _verbose_newton);
     conversion_succeeded = true;
   }
   catch (MooseException &)

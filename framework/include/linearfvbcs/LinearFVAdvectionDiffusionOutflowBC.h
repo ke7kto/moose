@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,13 +9,13 @@
 
 #pragma once
 
-#include "LinearFVAdvectionDiffusionBC.h"
+#include "LinearFVAdvectionDiffusionExtrapolatedBC.h"
 
 /**
  * Class implementing an outflow boundary condition for linear finite
  * volume variables. This is compatible with advection-diffusion problems.
  */
-class LinearFVAdvectionDiffusionOutflowBC : public LinearFVAdvectionDiffusionBC
+class LinearFVAdvectionDiffusionOutflowBC : public LinearFVAdvectionDiffusionExtrapolatedBC
 {
 public:
   static InputParameters validParams();
@@ -26,19 +26,16 @@ public:
    */
   LinearFVAdvectionDiffusionOutflowBC(const InputParameters & parameters);
 
-  virtual Real computeBoundaryValue() const override;
-
+  /**
+   * We assume zero normal gradient for outflow boundary conditions so these
+   * need to be changed
+   */
+  ///@{
   virtual Real computeBoundaryNormalGradient() const override;
-
-  virtual Real computeBoundaryValueMatrixContribution() const override;
-
-  virtual Real computeBoundaryValueRHSContribution() const override;
-
   virtual Real computeBoundaryGradientMatrixContribution() const override;
-
   virtual Real computeBoundaryGradientRHSContribution() const override;
+  ///@}
 
-protected:
-  /// Switch for enabling linear extrapolation for the boundary face value
-  const bool _two_term_expansion;
+  virtual bool useBoundaryGradientExtrapolation() const override { return false; }
+  virtual bool includesMaterialPropertyMultiplier() const override { return true; }
 };

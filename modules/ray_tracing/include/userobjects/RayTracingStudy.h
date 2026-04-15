@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -917,6 +917,13 @@ private:
   void traceableMeshChecks();
 
   /**
+   * Check for overlapping PeriodicRayBC boundaries and check for cases in which
+   * ghosting may not be sufficient with distributed mesh for overlapping
+   * periodic boundaries.
+   */
+  void periodicBoundaryChecks();
+
+  /**
    * Does the setup for internal sidesets. This includes:
    * - Setting if the local mesh has internal sidesets that have RayBCs and on which
    *   boundary (stored in _internal_sidesets)
@@ -1011,7 +1018,7 @@ private:
   RayID registerRay(const std::string & name);
 
   /// Threaded helpers for building element sides without extraneous allocation
-  std::vector<ElemSideBuilder> _threaded_elem_side_builders;
+  std::vector<libMesh::ElemSideBuilder> _threaded_elem_side_builders;
 
   /// Timing
   //@{
@@ -1057,9 +1064,9 @@ private:
   bool _has_same_level_active_elems;
 
   /// Nodal bounding box for the domain
-  BoundingBox _b_box;
+  libMesh::BoundingBox _b_box;
   /// Loose nodal bounding box for the domain
-  BoundingBox _loose_b_box;
+  libMesh::BoundingBox _loose_b_box;
   /// An inflated max distance for the domain
   Real _domain_max_length;
   /// The total volume of the domain
@@ -1076,9 +1083,9 @@ private:
   /// The TraceRay objects for each thread (they do the physical tracing)
   std::vector<std::shared_ptr<TraceRay>> _threaded_trace_ray;
   /// Face FE used for computing face normals for each thread
-  std::vector<std::unique_ptr<FEBase>> _threaded_fe_face;
+  std::vector<std::unique_ptr<libMesh::FEBase>> _threaded_fe_face;
   /// Face quadrature used for computing face normals for each thread
-  std::vector<std::unique_ptr<QBase>> _threaded_q_face;
+  std::vector<std::unique_ptr<libMesh::QBase>> _threaded_q_face;
   /// Threaded cache for side normals that have been computed already during tracing
   std::vector<std::unordered_map<std::pair<const Elem *, unsigned short>, Point>>
       _threaded_cached_normals;
@@ -1093,7 +1100,7 @@ private:
   const std::unique_ptr<ParallelRayStudy> _parallel_ray_study;
 
   /// Quadrature rule for laying points across a 1D ray segment
-  std::unique_ptr<QBase> _segment_qrule;
+  std::unique_ptr<libMesh::QBase> _segment_qrule;
 
   /// Total number of processor crossings for Rays that finished on this processor
   unsigned long long int _ending_processor_crossings;

@@ -76,7 +76,12 @@ C
 C     PRINTING FOR VERIFICATION PURPOSES
 C
       IF (TIME(1).GT.1.D0 .AND. COORDS(1).GT.0.25D0 .AND.
-     1   COORDS(2).GE.0.5D0 .AND. COORDS(3).GT.0.25D0) THEN
+     1   COORDS(2).GE.0.25D0 .AND. COORDS(3).GT.0.25D0) THEN
+
+        DO K1=1, NTENS
+          WRITE(*,110)  K1, STRESS(K1)
+        END DO
+
         DO K1=1, NTENS
           WRITE(*,120)  K1, STRAN(K1)
           WRITE(*,125)  K1, DSTRAN(K1)
@@ -121,23 +126,24 @@ C
       ENDIF
 
 
-120   FORMAT ( 1X 'STRAIN_', I2, :, 3X, 4F10.7 )
-125   FORMAT ( 1X 'DSTRAIN_', I2, :, 3X, 4F10.7 )
-130   FORMAT ( 1X 'COORDS_', I2, :, 3X, 4F10.7 )
-135   FORMAT ( 1X 'TIME_', I2, :, 3X, 4F10.7 )
-140   FORMAT ( 1X 'CELENT', :,  2F10.7 )
-145   FORMAT ( 1X 'NDI_', :,  2I2 )
-150   FORMAT ( 1X 'NSHR_', :,  2I2 )
-155   FORMAT ( 1X 'NTENS_', :,  2I2 )
-160   FORMAT ( 1X 'NOEL_', :,  2I2 )
-162   FORMAT ( 1X 'NPT_', :,  2I2 )
-165   FORMAT ( 1X 'DFGRD0_', I2, I2,:, 3X, 4F10.7 )
-170   FORMAT ( 1X 'DFGRD1_', I2, I2,:, 3X, 4F10.7 )
-175   FORMAT ( 1X 'DROT_', I2, I2,:, 3X, 4F10.7 )
-180   FORMAT ( 1X 'LAYER_', :,  2I2 )
-185   FORMAT ( 1X 'KSPT_', :,  2I2 )
-190   FORMAT ( 1X 'KSTEP_', :,  2I2 )
-195   FORMAT ( 1X 'KINC_', :,  2I2 )
+110   FORMAT ( 1X, 'STRESS_', I2, :, 3X, 4F10.7 )
+120   FORMAT ( 1X, 'STRAIN_', I2, :, 3X, 4F10.7 )
+125   FORMAT ( 1X, 'DSTRAIN_', I2, :, 3X, 4F10.7 )
+130   FORMAT ( 1X, 'COORDS_', I2, :, 3X, 4F10.7 )
+135   FORMAT ( 1X, 'TIME_', I2, :, 3X, 4F10.7 )
+140   FORMAT ( 1X, 'CELENT', :,  2F10.7 )
+145   FORMAT ( 1X, 'NDI_', :,  2I2 )
+150   FORMAT ( 1X, 'NSHR_', :,  2I2 )
+155   FORMAT ( 1X, 'NTENS_', :,  2I2 )
+160   FORMAT ( 1X, 'NOEL_', :,  2I2 )
+162   FORMAT ( 1X, 'NPT_', :,  2I2 )
+165   FORMAT ( 1X, 'DFGRD0_', I2, I2,:, 3X, 4F10.7 )
+170   FORMAT ( 1X, 'DFGRD1_', I2, I2,:, 3X, 4F10.7 )
+175   FORMAT ( 1X, 'DROT_', I2, I2,:, 3X, 4F10.7 )
+180   FORMAT ( 1X, 'LAYER_', :,  2I2 )
+185   FORMAT ( 1X, 'KSPT_', :,  2I2 )
+190   FORMAT ( 1X, 'KSTEP_', :,  2I2 )
+195   FORMAT ( 1X, 'KINC_', :,  2I2 )
 
       RETURN
       END

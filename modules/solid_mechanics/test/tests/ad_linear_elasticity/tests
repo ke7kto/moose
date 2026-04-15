@@ -1,16 +1,14 @@
 [Tests]
   issues = '#13099'
-  [./linear_elastic_material]
+  [linear_elastic_material]
     type = 'Exodiff'
     input = 'linear_elastic_material.i'
     exodiff = 'linear_elastic_material_out.e'
     max_parallel = 1
     requirement = 'We shall be able to reproduce linear elastic stress results of the hand-coded simulation using automatic differentiation.'
     design = 'ADComputeLinearElasticStress.md'
-    # skip test if test is being run out-of-tree. Issue Ref: #25279
-    installation_type = in_tree
-  [../]
-  [./linear_elastic_material-jac]
+  []
+  [linear_elastic_material-jac]
     type = 'PetscJacobianTester'
     input = 'linear_elastic_material.i'
     run_sim = 'True'
@@ -19,36 +17,34 @@
     prereq = linear_elastic_material
     requirement = 'The Jacobian for the AD linear elastic stress problem shall be perfect'
     design = 'ADComputeLinearElasticStress.md'
-  [../]
+  []
 
-  [./extra_stresses]
+  [extra_stresses]
     type = 'Exodiff'
     input = 'extra_stresses.i'
     exodiff = 'extra_stresses_out.e'
     requirement = 'We shall be able to introduce extra stresses into the stress calculators using automatic differentiation.'
     design = 'ADComputeLinearElasticStress.md'
-  [../]
-  [./extra_stresses-jac]
+  []
+  [extra_stresses-jac]
     type = 'PetscJacobianTester'
     input = 'extra_stresses.i'
     run_sim = 'True'
     ratio_tol = 1e-7
     difference_tol = 1e-1
     prereq = extra_stresses
-    requirement = 'The Jacobian for the AD linear elastic stress problem shall be perfect'
+    requirement = 'The Jacobian for the AD linear elastic stress problem with extra stress definition shall be perfect'
     design = 'ADComputeLinearElasticStress.md'
-  [../]
+  []
 
-  [./applied_strain]
+  [applied_strain]
     type = 'Exodiff'
     input = 'applied_strain.i'
     exodiff = 'applied_strain_out.e'
     requirement = 'We shall be able to reproduce eigenstrain results of the hand-coded simulation using automatic differentiation.'
     design = 'ComputeEigenstrain.md'
-    # skip test if test is being run out-of-tree. Issue Ref: #25279
-    installation_type = in_tree
-  [../]
-  [./applied_strain-jac]
+  []
+  [applied_strain-jac]
     type = 'PetscJacobianTester'
     input = 'applied_strain.i'
     run_sim = 'True'
@@ -57,19 +53,17 @@
     prereq = applied_strain
     requirement = 'The Jacobian for the AD eigenstrain problem shall be perfect'
     design = 'ComputeEigenstrain.md'
-  [../]
+  []
 
-  [./tensor]
+  [tensor]
     type = 'Exodiff'
     input = 'tensor.i'
     exodiff = 'tensor_out.e'
     max_parallel = 1
     requirement = 'We shall be able to reproduce small strain with specified tensors results of the hand-coded simulation using automatic differentiation.'
     design = 'ADComputeLinearElasticStress.md'
-    # skip test if test is being run out-of-tree. Issue Ref: #25279
-    installation_type = in_tree
-  [../]
-  [./tensor-jac]
+  []
+  [tensor-jac]
     type = 'PetscJacobianTester'
     input = 'tensor.i'
     run_sim = 'True'
@@ -78,18 +72,16 @@
     prereq = tensor
     requirement = 'The Jacobian for the AD small strain with specified tensors problem shall be perfect'
     design = 'ADComputeLinearElasticStress.md'
-  [../]
+  []
 
-  [./thermal_expansion]
+  [thermal_expansion]
     type = 'Exodiff'
     input = 'thermal_expansion.i'
     exodiff = 'thermal_expansion_out.e'
     requirement = 'We shall be able to reproduce thermal eigenstrain results of the hand-coded simulation using automatic differentiation.'
     design = 'ComputeEigenstrain.md'
-    # skip test if test is being run out-of-tree. Issue Ref: #25279
-    installation_type = in_tree
-  [../]
-  [./thermal_expansion-jac]
+  []
+  [thermal_expansion-jac]
     type = 'PetscJacobianTester'
     input = 'thermal_expansion.i'
     run_sim = 'True'
@@ -98,5 +90,5 @@
     prereq = thermal_expansion
     requirement = 'The Jacobian for the AD thermal eigenstrain problem shall be perfect'
     design = 'ComputeEigenstrain.md'
-  [../]
+  []
 []

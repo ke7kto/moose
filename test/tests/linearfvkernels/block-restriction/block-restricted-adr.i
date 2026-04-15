@@ -43,6 +43,12 @@
   []
 []
 
+[FVInterpolationMethods]
+  [average]
+    type = FVGeometricAverage
+  []
+[]
+
 [LinearFVKernels]
   [diffusion]
     type = LinearFVDiffusion
@@ -54,7 +60,7 @@
     type = LinearFVAdvection
     variable = u
     velocity = "0.5 0 0"
-    advected_interp_method = average
+    advected_interp_method_name = average
   []
   [reaction]
     type = LinearFVReaction
@@ -118,9 +124,20 @@
   []
 []
 
+[Convergence]
+  [linear]
+    type = IterationCountConvergence
+    max_iterations = 1
+    converge_at_max_iterations = true
+  []
+[]
+
 [Executioner]
-  type = LinearPicardSteady
-  linear_systems_to_solve = u_sys
+  type = Steady
+  system_names = u_sys
+  l_tol = 1e-10
+  multi_system_fixed_point=true
+  multi_system_fixed_point_convergence=linear
   petsc_options_iname = '-pc_type -pc_hypre_type'
   petsc_options_value = 'hypre boomeramg'
 []

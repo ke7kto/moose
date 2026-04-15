@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -10,7 +10,11 @@
 #pragma once
 
 #include "SolverSystem.h"
+#include "LinearFVGradientInterface.h"
 #include "PerfGraphInterface.h"
+#include "GradientLimiterType.h"
+
+#include <set>
 
 #include "libmesh/transient_system.h"
 #include "libmesh/linear_implicit_system.h"
@@ -32,7 +36,9 @@ class DiagonalMatrix;
 /**
  * Linear system to be solved
  */
-class LinearSystem : public SolverSystem, public PerfGraphInterface
+class LinearSystem : public SolverSystem,
+                     public PerfGraphInterface,
+                     public LinearFVGradientInterface
 {
 public:
   LinearSystem(FEProblemBase & problem, const std::string & name);
@@ -40,12 +46,15 @@ public:
 
   virtual void solve() override;
 
-  virtual void addTimeIntegrator(const std::string & type,
-                                 const std::string & name,
-                                 InputParameters & parameters) override;
-  using SystemBase::addTimeIntegrator;
+  /**
+   * At the moment, this is only used for the multi-system fixed point
+   * iteration. We return true here since ther is no way to specify
+   * separate linear residuals in FEProblemSolve yet.
+   */
+  virtual bool converged() override { return _converged; }
 
   virtual void initialSetup() override;
+  virtual void reinit() override;
 
   // Overriding these to make sure the linear systems don't do anything during
   // residual/jacobian setup
@@ -55,21 +64,33 @@ public:
   /**
    * Quit the current solve as soon as possible.
    */
-  virtual void stopSolve(const ExecFlagType & exec_flag) override;
+  virtual void stopSolve(const ExecFlagType & exec_flag,
+                         const std::set<TagID> & vector_tags_to_close) override;
+
+  /**
+   * If the system has a kernel that corresponds to a time derivative.
+   * Considering that we don't have transient capabilities for linear
+   * systems at the moment, this is false.
+   */
+  virtual bool containsTimeKernel() override;
+  virtual std::vector<std::string> timeKernelVariableNames() override { return {}; }
 
   /**
    * Compute the right hand side and the system matrix of the system for given tags.
    * @param vector_tags The IDs of the vector tags whose right hand side contribution should be
    * included
    * @param matrix_tags The IDs of the matrix tags whose matrix contribution should be included
+   * @param compute_gradients A flag to disable the computation of new gradients during the
+   * assembly, can be used to lag gradients
    */
   void computeLinearSystemTags(const std::set<TagID> & vector_tags,
-                               const std::set<TagID> & matrix_tags);
+                               const std::set<TagID> & matrix_tags,
+                               const bool compute_gradients = true);
 
   /**
    * Return a reference to the stored linear implicit system
    */
-  LinearImplicitSystem & linearImplicitSystem() { return _linear_implicit_system; }
+  libMesh::LinearImplicitSystem & linearImplicitSystem() { return _linear_implicit_system; }
 
   /**
    *  Return a numeric vector that is associated with the time tag.
@@ -101,27 +122,34 @@ public:
   virtual TagID systemMatrixTag() const override { return _system_matrix_tag; }
   ///@}
 
-  /**
-   * Compute the Green-Gauss gradients
-   */
-  void computeGradients();
-
-  /**
-   * Return a reference to the new (temporary) gradient container vectors
-   */
-  std::vector<std::unique_ptr<NumericVector<Number>>> & newGradientContainer()
+  /// Fetching the right hand side vector from the libmesh system.
+  NumericVector<Number> & getRightHandSideVector() { return *_linear_implicit_system.rhs; }
+  const NumericVector<Number> & getRightHandSideVector() const
   {
-    return _new_gradient;
+    return *_linear_implicit_system.rhs;
   }
+
+  /// Fetching the system matrix from the libmesh system.
+  SparseMatrix<Number> & getSystemMatrix() { return *_linear_implicit_system.matrix; }
+  const SparseMatrix<Number> & getSystemMatrix() const { return *_linear_implicit_system.matrix; }
+
+  using LinearFVGradientInterface::computeGradients;
+  using LinearFVGradientInterface::linearFVLimitedGradientContainer;
+  using LinearFVGradientInterface::requestLinearFVLimitedGradients;
+
+  virtual void compute(ExecFlagType type) override;
 
 protected:
   /**
    * Compute the right hand side and system matrix for given tags
    * @param vector_tags The tags of kernels for which the right hand side is to be computed.
    * @param matrix_tags The tags of kernels for which the system matrix is to be computed.
+   * @param compute_gradients A flag to disable the computation of new gradients during the
+   * assembly, can be used to lag gradients
    */
   void computeLinearSystemInternal(const std::set<TagID> & vector_tags,
-                                   const std::set<TagID> & matrix_tags);
+                                   const std::set<TagID> & matrix_tags,
+                                   const bool compute_gradients = true);
 
   /// Base class reference to the libmesh system
   System & _sys;
@@ -159,17 +187,17 @@ protected:
   /// Number of linear iterations
   unsigned int _n_linear_iters;
 
+  /// The initial linear residual
+  Real _initial_linear_residual;
+
   /// The final linear residual
   Real _final_linear_residual;
 
-  /// Base class reference to the linear implicit system in libmesh
-  LinearImplicitSystem & _linear_implicit_system;
+  /// If the solve on the linear system converged
+  bool _converged;
 
-  /// Vectors to store the new gradients during the computation. This is needed
-  /// because the old gradients might still be needed to determine boundary values
-  /// (for extrapolated boundary conditions). Once the computation is done, we
-  /// move the nev vectors to the original containers.
-  std::vector<std::unique_ptr<NumericVector<Number>>> _new_gradient;
+  /// Base class reference to the linear implicit system in libmesh
+  libMesh::LinearImplicitSystem & _linear_implicit_system;
 
 private:
   /// The current states of the solution (0 = current, 1 = old, etc)

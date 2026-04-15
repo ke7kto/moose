@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -52,25 +52,18 @@ protected:
   flood(const Elem * elem, const Point & normal, const boundary_id_type & side_id, MeshBase & mesh);
 
   /**
-   * Determines whether two normal vectors are within normal_tol of each other.
-   * @param normal_1 The first normal vector to compare to normal_2.
-   * @param normal_2 The second normal vector to compare to normal_1.
-   * @param tol The comparison tolerance.
-   * @return A bool indicating whether 1 - dot(normal_1, normal_2) <= tol.
-   */
-  bool normalsWithinTol(const Point & normal_1, const Point & normal_2, const Real & tol) const;
-
-  /**
-   * Determines whether the given element's subdomain id is in the given subdomain_id_list.
-   */
-  bool elementSubdomainIdInList(const Elem * const elem,
-                                const std::vector<subdomain_id_type> & subdomain_id_list) const;
-
-  /**
    * Determines whether the given side of an element belongs to any boundaries in the
    * included_boundaries parameter.
    */
   bool elementSideInIncludedBoundaries(const Elem * const elem,
+                                       const unsigned int side,
+                                       const MeshBase & mesh) const;
+
+  /**
+   * Determines whether the given side of an element belongs to any boundaries in the
+   * excluded_boundaries parameter.
+   */
+  bool elementSideInExcludedBoundaries(const Elem * const elem,
                                        const unsigned int side,
                                        const MeshBase & mesh) const;
 
@@ -96,8 +89,11 @@ protected:
   /// Whether or not to remove the old sidesets (all of them, if any) when adding sidesets
   const bool _replace;
 
-  /// whether to check boundary ids when adding sides or not
-  const bool _check_boundaries;
+  /// whether to check boundary ids against the included boundary list when adding sides or not
+  const bool _check_included_boundaries;
+
+  /// whether to check boundary ids against the excluded boundary list when adding sides or not
+  const bool _check_excluded_boundaries;
 
   /// whether to check subdomain ids of the element in the (element, side, boundary id) tuple when adding sides
   const bool _check_subdomains;
@@ -105,8 +101,11 @@ protected:
   /// whether to check the subdomain ids of the neighbor element (on the other 'side' of the side) when adding sides
   const bool _check_neighbor_subdomains;
 
-  /// A list of included boundary ids that the side has to be part of, extracted from the included_boundaries parameter
-  std::vector<boundary_id_type> _restricted_boundary_ids;
+  /// A list of boundary ids that the side has to be part of, extracted from the included_boundaries parameter
+  std::vector<boundary_id_type> _included_boundary_ids;
+
+  /// A list of boundary ids that the side must not be a part of, extracted from the excluded_boundaries parameter
+  std::vector<boundary_id_type> _excluded_boundary_ids;
 
   /// A list of included subdomain ids that the side has to be part of, extracted from the included_subdomains parameter
   std::vector<subdomain_id_type> _included_subdomain_ids;
@@ -130,7 +129,7 @@ protected:
    */
   const Real _normal_tol;
 
-  std::unique_ptr<FEBase> _fe_face;
-  std::unique_ptr<QGauss> _qface;
+  std::unique_ptr<libMesh::FEBase> _fe_face;
+  std::unique_ptr<libMesh::QGauss> _qface;
   std::map<boundary_id_type, std::set<const Elem *>> _visited;
 };

@@ -4,7 +4,7 @@
             "type": "MeshMetaDataReporter",
             "values": {
                 "values": {
-                    "type": "std::map<std::string, RestartableDataReporter::Value, std::less<std::string>, std::allocator<std::pair<std::stringconst, RestartableDataReporter::Value>>>"
+                    "type": "std::map<std::string, RestartableDataReporter::Value>"
                 }
             }
         }
@@ -38,6 +38,10 @@
                         "value": []
                     },
                     "MeshMetaData/amg1/extruded": {
+                        "type": "bool",
+                        "value": false
+                    },
+                    "MeshMetaData/amg1/is_control_drum": {
                         "type": "bool",
                         "value": false
                     },
@@ -101,6 +105,10 @@
                         "value": []
                     },
                     "MeshMetaData/amg2/extruded": {
+                        "type": "bool",
+                        "value": false
+                    },
+                    "MeshMetaData/amg2/is_control_drum": {
                         "type": "bool",
                         "value": false
                     },
@@ -210,7 +218,7 @@
                         "value": []
                     },
                     "MeshMetaData/pin1/pin_region_ids": {
-                        "type": "std::map<unsigned short, std::vector<std::vector<unsigned short>>, std::less<unsigned short>, std::allocator<std::pair<unsigned short const, std::vector<std::vector<unsigned short>>>>>",
+                        "type": "std::map<unsigned short, std::vector<std::vector<unsigned short>>>",
                         "value": [
                             [
                                 1,
@@ -279,7 +287,7 @@
                         "value": []
                     },
                     "MeshMetaData/pin2/pin_region_ids": {
-                        "type": "std::map<unsigned short, std::vector<std::vector<unsigned short>>, std::less<unsigned short>, std::allocator<std::pair<unsigned short const, std::vector<std::vector<unsigned short>>>>>",
+                        "type": "std::map<unsigned short, std::vector<std::vector<unsigned short>>>",
                         "value": [
                             [
                                 2,
@@ -342,7 +350,7 @@
                         "value": []
                     },
                     "MeshMetaData/pin3/pin_region_ids": {
-                        "type": "std::map<unsigned short, std::vector<std::vector<unsigned short>>, std::less<unsigned short>, std::allocator<std::pair<unsigned short const, std::vector<std::vector<unsigned short>>>>>",
+                        "type": "std::map<unsigned short, std::vector<std::vector<unsigned short>>>",
                         "value": [
                             [
                                 3,
@@ -405,8 +413,12 @@
                         "type": "bool",
                         "value": true
                     },
+                    "MeshMetaData/rmp/flexible_assembly_stitching": {
+                        "type": "bool",
+                        "value": false
+                    },
                     "MeshMetaData/rmp/mesh_dimensions": {
-                        "type": "int",
+                        "type": "unsigned int",
                         "value": 3
                     },
                     "MeshMetaData/rmp/mesh_geometry": {
@@ -416,6 +428,10 @@
                     "MeshMetaData/rmp/radial_boundary_id": {
                         "type": "short",
                         "value": 200
+                    },
+                    "MeshMetaData/rmp/region_id_as_block_name": {
+                        "type": "bool",
+                        "value": false
                     },
                     "MeshMetaData/rmp/top_boundary_id": {
                         "type": "short",

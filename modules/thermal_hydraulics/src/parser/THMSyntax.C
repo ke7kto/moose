@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,9 +17,6 @@ namespace THM
 void
 associateSyntax(Syntax & syntax)
 {
-  syntax.registerActionSyntax("AddHeatStructureMaterialAction",
-                              "HeatStructureMaterials/*",
-                              "THM:add_heat_structure_material");
   syntax.registerActionSyntax("THMCreateMeshAction", "Components");
   syntax.registerActionSyntax("AddComponentAction", "Components/*", "THM:add_component");
   syntax.registerActionSyntax("AddComponentAction", "Components/*/*", "THM:add_component");
@@ -61,12 +58,10 @@ registerActions(Syntax & syntax)
   registerTask("THM:add_relationship_managers", true);
 
   registerMooseObjectTask("THM:add_component", Component, false);
-  registerMooseObjectTask("THM:add_heat_structure_material", SolidMaterialProperties, false);
   registerMooseObjectTask("THM:add_closures", Closures, false);
 
   try
   {
-    syntax.addDependency("THM:add_heat_structure_material", "add_function");
     syntax.addDependency("THM:output_vector_velocity", "setup_mesh");
     syntax.addDependency("THM:add_closures", "setup_mesh");
     syntax.addDependency("THM:init_components", "THM:output_vector_velocity");
@@ -74,6 +69,12 @@ registerActions(Syntax & syntax)
     syntax.addDependency("THM:init_simulation", "THM:add_component");
     syntax.addDependency("add_mesh_generator", "THM:add_component");
     syntax.addDependency("THM:identify_loops", "THM:add_component");
+    // Components must specify their blocks to the Physics before it gets initialized
+    syntax.addDependency("init_physics", "THM:init_components");
+    // Fluid properties are retrieved during component initialization
+    syntax.addDependency("THM:init_components", "add_fluid_properties");
+    // Solid material property used in a component needs a function
+    syntax.addDependency("THM:init_components", "add_function");
     syntax.addDependency("THM:identify_loops", "add_fluid_properties");
     syntax.addDependency("THM:integrity_check", "THM:init_components");
     syntax.addDependency("THM:integrity_check", "THM:identify_loops");
@@ -85,9 +86,8 @@ registerActions(Syntax & syntax)
     syntax.addDependency("add_elemental_field_variable", "add_fluid_properties");
     syntax.addDependency("add_aux_variable", "add_fluid_properties");
     syntax.addDependency("add_variable", "add_fluid_properties");
-    syntax.addDependency("THM:init_components", "THM:add_heat_structure_material");
     syntax.addDependency("THM:init_components", "THM:add_closures");
-    syntax.addDependency("THM:add_variables", "THM:init_components");
+    syntax.addDependency("add_variable", "THM:init_components");
     syntax.addDependency("THM:setup_output", "add_output");
     syntax.addDependency("THM:add_component_moose_objects", "add_material");
     syntax.addDependency("check_output", "THM:add_component_moose_objects");

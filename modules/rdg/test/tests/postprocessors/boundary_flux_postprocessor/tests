@@ -7,10 +7,9 @@
     abs_zero = 1e-15
 
     allow_test_objects = true
-    threading = '!pthreads'
 
-    requirement = "BoundaryFluxPostprocessor shall output correct boundary flux values."
+    requirement = "RDGBoundaryFluxPostprocessor shall output correct boundary flux values."
     issues = '#13178'
-    design = '/BoundaryFluxPostprocessor.md'
+    design = '/RDGBoundaryFluxPostprocessor.md'
   [../]
 []

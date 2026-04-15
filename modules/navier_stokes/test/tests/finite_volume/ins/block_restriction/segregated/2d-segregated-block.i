@@ -193,13 +193,13 @@ restricted_blocks = '1'
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = vel_x
-    function = '1.0'
+    functor = '1.0'
   []
   [inlet-v]
     type = INSFVInletVelocityBC
     boundary = 'left'
     variable = vel_y
-    function = '0.0'
+    functor = '0.0'
   []
   [walls-u]
     type = INSFVNoSlipWallBC
@@ -257,7 +257,7 @@ restricted_blocks = '1'
 []
 
 [Executioner]
-  type = SIMPLE
+  type = SIMPLENonlinearAssembly
   momentum_l_abs_tol = 1e-12
   pressure_l_abs_tol = 1e-12
   energy_l_abs_tol = 1e-12

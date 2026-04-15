@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -28,8 +28,13 @@ SinglePhaseFluidProperties::validParams()
       2e5,
       "p_initial_guess > 0",
       "Pressure initial guess for Newton Method variable set conversion");
-  params.addParamNamesToGroup("tolerance T_initial_guess p_initial_guess",
-                              "Variable set conversions Newton solve");
+  params.addParam<unsigned int>(
+      "max_newton_its", 100, "Maximum number of Newton iterations for variable set conversions");
+  params.addParam<bool>(
+      "verbose_newton", false, "Whether to output Newton inversion iterations to console");
+  params.addParamNamesToGroup(
+      "tolerance T_initial_guess p_initial_guess max_newton_its verbose_newton",
+      "Variable set conversions Newton solve");
 
   return params;
 }
@@ -37,9 +42,11 @@ SinglePhaseFluidProperties::validParams()
 SinglePhaseFluidProperties::SinglePhaseFluidProperties(const InputParameters & parameters)
   : FluidProperties(parameters),
     // downstream apps are creating fluid properties without their parameters, hence the workaround
-    _tolerance(isParamValid("tolerance") ? getParam<Real>("tolerance") : 1e-8),
-    _T_initial_guess(isParamValid("T_initial_guess") ? getParam<Real>("T_initial_guess") : 400),
-    _p_initial_guess(isParamValid("p_initial_guess") ? getParam<Real>("p_initial_guess") : 2e5)
+    _tolerance(getParam<Real>("tolerance")),
+    _T_initial_guess(getParam<Real>("T_initial_guess")),
+    _p_initial_guess(getParam<Real>("p_initial_guess")),
+    _max_newton_its(getParam<unsigned int>("max_newton_its")),
+    _verbose_newton(getParam<bool>("verbose_newton"))
 {
 }
 
@@ -199,6 +206,22 @@ SinglePhaseFluidProperties::k_from_p_T(Real p, Real T, Real & k, Real & dk_dp, R
 }
 
 Real
+SinglePhaseFluidProperties::h_from_v_e(Real v, Real e) const
+{
+  return e + v * p_from_v_e(v, e);
+}
+
+void
+SinglePhaseFluidProperties::h_from_v_e(Real v, Real e, Real & h, Real & dh_dv, Real & dh_de) const
+{
+  Real p, dp_dv, dp_de;
+  p_from_v_e(v, e, p, dp_dv, dp_de);
+  h = e + v * p;
+  dh_dv = p + v * dp_dv;
+  dh_de = 1 + v * dp_de;
+}
+
+Real
 SinglePhaseFluidProperties::e_from_p_T(Real p, Real T) const
 {
   const Real rho = rho_from_p_T(p, T);
@@ -290,13 +313,13 @@ SinglePhaseFluidProperties::criticalTemperature() const
 Real
 SinglePhaseFluidProperties::criticalDensity() const
 {
-  mooseError(__PRETTY_FUNCTION__, " not implemented.");
+  return rho_from_p_T(criticalPressure(), criticalTemperature());
 }
 
 Real
 SinglePhaseFluidProperties::criticalInternalEnergy() const
 {
-  mooseError(__PRETTY_FUNCTION__, " not implemented.");
+  return e_from_p_rho(criticalPressure(), criticalDensity());
 }
 
 Real
@@ -345,7 +368,8 @@ SinglePhaseFluidProperties::gamma_from_p_T(
   gamma = gamma_from_p_T(p, T);
 }
 
-Real SinglePhaseFluidProperties::vaporPressure(Real) const
+Real
+SinglePhaseFluidProperties::vaporPressure(Real) const
 {
   mooseError(__PRETTY_FUNCTION__, " not implemented.");
 }
@@ -380,7 +404,8 @@ SinglePhaseFluidProperties::vaporPressure(const ADReal & T) const
   return result;
 }
 
-Real SinglePhaseFluidProperties::vaporTemperature(Real) const
+Real
+SinglePhaseFluidProperties::vaporTemperature(Real) const
 {
   mooseError(__PRETTY_FUNCTION__, " not implemented.");
 }
@@ -454,7 +479,8 @@ SinglePhaseFluidProperties::rho_mu_from_p_T(const ADReal & p,
   mu = mu_from_p_T(p, T);
 }
 
-Real SinglePhaseFluidProperties::e_spndl_from_v(Real) const
+Real
+SinglePhaseFluidProperties::e_spndl_from_v(Real) const
 {
   mooseError(__PRETTY_FUNCTION__, " not implemented.");
 }

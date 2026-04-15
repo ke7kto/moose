@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -12,9 +12,9 @@
 #include "PetscSupport.h"
 #include "MooseApp.h"
 #include "Executioner.h"
-#include "Eigenvalue.h"
 #include "FEProblem.h"
 #include "EigenProblem.h"
+#include "EigenProblemSolve.h"
 
 registerMooseAction("MooseApp", CreateExecutionerAction, "setup_executioner");
 
@@ -47,10 +47,7 @@ CreateExecutionerAction::act()
   std::shared_ptr<Executioner> executioner =
       _factory.create<Executioner>(_type, "Executioner", _moose_object_pars);
 
-  std::shared_ptr<Eigenvalue> eigen_executioner =
-      std::dynamic_pointer_cast<Eigenvalue>(executioner);
-
-  if ((eigen_problem == nullptr) != (eigen_executioner == nullptr))
+  if ((eigen_problem != nullptr) != executioner->hasSolveObject<EigenProblemSolve>())
     mooseError("Executioner is not consistent with each other; EigenExecutioner needs an "
                "EigenProblem, and Steady and Transient need a FEProblem");
 
@@ -70,23 +67,29 @@ CreateExecutionerAction::setupAutoPreconditioning()
   const MooseEnum & solve_type = _moose_object_pars.get<MooseEnum>("solve_type");
   if (((solve_type.find("NEWTON") != solve_type.items().end()) && (solve_type == "NEWTON")) ||
       ((solve_type.find("LINEAR") != solve_type.items().end()) && (solve_type == "LINEAR")))
-  {
-    // Action Parameters
-    InputParameters params = _action_factory.getValidParams("SetupPreconditionerAction");
-    params.set<std::string>("type") = "SMP";
+    for (const auto & nl_sys_name : _problem->getNonlinearSystemNames())
+    {
+      // Action Parameters
+      InputParameters params = _action_factory.getValidParams("SetupPreconditionerAction");
+      params.set<std::string>("type") = "SMP";
 
-    // Associate errors with "solve_type"
-    associateWithParameter(_moose_object_pars, "solve_type", params);
+      // Associate errors with "solve_type"
+      associateWithParameter(_moose_object_pars, "solve_type", params);
 
-    // Create the Action that will build the Preconditioner object
-    std::shared_ptr<Action> ptr =
-        _action_factory.create("SetupPreconditionerAction", "_moose_auto", params);
+      // Create the Action that will build the Preconditioner object
+      std::shared_ptr<Action> ptr = _action_factory.create(
+          "SetupPreconditionerAction",
+          MooseUtils::join(
+              std::vector<std::string>({"_moose_auto", static_cast<std::string>(nl_sys_name)}),
+              "_"),
+          params);
 
-    // Set 'full=true'
-    std::shared_ptr<MooseObjectAction> moa_ptr = std::static_pointer_cast<MooseObjectAction>(ptr);
-    InputParameters & mo_params = moa_ptr->getObjectParams();
-    mo_params.set<bool>("full") = true;
+      // Set 'full=true'
+      std::shared_ptr<MooseObjectAction> moa_ptr = std::static_pointer_cast<MooseObjectAction>(ptr);
+      InputParameters & mo_params = moa_ptr->getObjectParams();
+      mo_params.set<bool>("full") = true;
+      mo_params.set<NonlinearSystemName>("nl_sys") = nl_sys_name;
 
-    _awh.addActionBlock(ptr);
-  }
+      _awh.addActionBlock(ptr);
+    }
 }
