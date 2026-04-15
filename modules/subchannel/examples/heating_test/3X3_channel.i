@@ -15,7 +15,7 @@ n_cells = 20
     n_cells = '${n_cells}'
     pitch = '${pitch}'
     pin_diameter = 0.00950
-    gap = 0.00095
+    side_gap = 0.00095
     unheated_length_entry = '${unheated_length_entry}'
     heated_length = '${heated_length}'
     unheated_length_exit = '${unheated_length_exit}'
@@ -42,6 +42,13 @@ n_cells = 20
   compute_viscosity = true
   compute_power = true
   P_out = ${P_out}
+  friction_closure = 'MATRA'
+[]
+
+[SCMClosures]
+  [MATRA]
+    type = SCMFrictionMATRA
+  []
 []
 
 [ICs]

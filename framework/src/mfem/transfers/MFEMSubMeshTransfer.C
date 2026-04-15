@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMSubMeshTransfer.h"
 #include "MFEMProblem.h"
@@ -20,7 +20,7 @@ MFEMSubMeshTransfer::validParams()
   InputParameters params = MFEMGeneralUserObject::validParams();
   params.registerBase("MFEMSubMeshTransfer");
   params.addClassDescription("Class to transfer MFEM variable data to or from a restricted copy of "
-                             "the variable defined on an "
+                             "the variable defined on "
                              " a subspace of an MFEMMesh, represented as an MFEMSubMesh.");
   params.addRequiredParam<VariableName>("from_variable",
                                         "MFEM variable to transfer data from. Can be defined on "
@@ -34,9 +34,9 @@ MFEMSubMeshTransfer::validParams()
 MFEMSubMeshTransfer::MFEMSubMeshTransfer(const InputParameters & parameters)
   : MFEMGeneralUserObject(parameters),
     _source_var_name(getParam<VariableName>("from_variable")),
-    _source_var(*getMFEMProblem().getProblemData().gridfunctions.Get(_source_var_name)),
+    _source_var(*getMFEMProblem().getGridFunction(_source_var_name)),
     _result_var_name(getParam<VariableName>("to_variable")),
-    _result_var(*getMFEMProblem().getProblemData().gridfunctions.Get(_result_var_name))
+    _result_var(*getMFEMProblem().getGridFunction(_result_var_name))
 {
 }
 

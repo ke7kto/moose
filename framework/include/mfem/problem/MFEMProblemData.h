@@ -7,16 +7,16 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
+
 #include "EquationSystem.h"
+#include "ComplexEquationSystem.h"
 #include "MFEMContainers.h"
 #include "CoefficientManager.h"
 #include "MFEMSolverBase.h"
-#include <fstream>
-#include <iostream>
-#include <memory>
+#include "MFEMRefinementMarker.h"
 
 /// Base problem data struct.
 struct MFEMProblemData
@@ -33,13 +33,17 @@ public:
   mfem::BlockVector f;
 
   std::shared_ptr<Moose::MFEM::EquationSystem> eqn_system{nullptr};
-  std::shared_ptr<mfem::NewtonSolver> nonlinear_solver{nullptr};
+  std::shared_ptr<mfem::IterativeSolver> nonlinear_solver{nullptr};
 
   std::shared_ptr<MFEMSolverBase> jacobian_solver{nullptr};
 
   Moose::MFEM::FECollections fecs;
   Moose::MFEM::FESpaces fespaces;
   Moose::MFEM::GridFunctions gridfunctions;
+  Moose::MFEM::TimeDerivativeMap time_derivative_map;
+  Moose::MFEM::ComplexGridFunctions cmplx_gridfunctions;
+
+  std::shared_ptr<MFEMRefinementMarker> refiner;
 
   MPI_Comm comm;
   int myid;

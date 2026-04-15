@@ -10,7 +10,7 @@ heated_length = 1.0
     n_cells = 10
     pitch = 0.014605
     pin_diameter = 0.012065
-    gap = 0.0015875
+    side_gap = 0.0015875
     heated_length = ${heated_length}
     spacer_z = '0.0'
     spacer_k = '0.0'
@@ -24,51 +24,6 @@ heated_length = 1.0
     n_cells = 10
     pitch = 0.014605
     heated_length = ${heated_length}
-  []
-[]
-
-[AuxVariables]
-  [mdot]
-    block = sub_channel
-  []
-  [SumWij]
-    block = sub_channel
-  []
-  [P]
-    block = sub_channel
-  []
-  [DP]
-    block = sub_channel
-  []
-  [h]
-    block = sub_channel
-  []
-  [T]
-    block = sub_channel
-  []
-  [Tpin]
-    block = fuel_pins
-  []
-  [Dpin]
-    block = fuel_pins
-  []
-  [rho]
-    block = sub_channel
-  []
-  [mu]
-    block = sub_channel
-  []
-  [S]
-    block = sub_channel
-  []
-  [w_perim]
-    block = sub_channel
-  []
-  [q_prime]
-    block = fuel_pins
-  []
-  [displacement]
-    block = sub_channel
   []
 []
 
@@ -97,6 +52,20 @@ heated_length = 1.0
   compute_viscosity = true
   compute_power = true
   P_out = ${P_out}
+
+  # Heat Transfer Correlations
+  pin_HTC_closure = 'dittus-boelter'
+  friction_closure = 'MATRA'
+[]
+
+[SCMClosures]
+  [MATRA]
+    type = SCMFrictionMATRA
+  []
+  [dittus-boelter]
+    type = SCMHTCDittusBoelter
+    correction_factor = none
+  []
 []
 
 [ICs]
@@ -215,11 +184,13 @@ heated_length = 1.0
     execute_on = 'timestep_end'
     positions = '0   0   0 '
     bounding_box_padding = '0 0 0.01'
+    max_procs_per_app = 1
   []
   [viz]
     type = FullSolveMultiApp
     input_files = '3d.i'
     execute_on = 'timestep_end'
+    max_procs_per_app = 1
   []
 []
 

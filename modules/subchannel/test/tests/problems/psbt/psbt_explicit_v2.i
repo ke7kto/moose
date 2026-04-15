@@ -12,7 +12,7 @@ pin_diameter = 0.00950
     n_cells = 10
     pitch = 0.0126
     pin_diameter = ${pin_diameter}
-    gap = 0.00095 # the half gap between sub-channel assemblies
+    side_gap = 0.00095
     heated_length = 1.0
     spacer_z = '0.0'
     spacer_k = '0.0'
@@ -46,8 +46,18 @@ pin_diameter = 0.00950
   compute_power = true
   P_out = report_pressure_outlet
   verbose_subchannel = true
-  default_friction_model = false
   constant_beta = false
+  friction_closure = 'Cheng'
+  pin_HTC_closure = 'Dittus-Boelter'
+[]
+
+[SCMClosures]
+  [Cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [Dittus-Boelter]
+    type = SCMHTCDittusBoelter
+  []
 []
 
 [ICs]

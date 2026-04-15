@@ -7,13 +7,15 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
+
 #include "ExternalProblem.h"
 #include "MFEMProblemData.h"
 #include "MFEMMesh.h"
-#include "MFEMExecutioner.h"
+#include "MFEMRefinementMarker.h"
+#include "MFEMComplexVariable.h"
 
 class MFEMProblem : public ExternalProblem
 {
@@ -25,7 +27,6 @@ public:
 
   virtual void initialSetup() override;
   virtual void externalSolve() override {}
-  virtual bool nlConverged(const unsigned int) override { return true; }
   virtual void syncSolutions(Direction) override {}
 
   /**
@@ -71,10 +72,8 @@ public:
   void setMesh();
 
   /**
-   * Initialise the required ProblemOperator used in the Executioner to solve the problem.
+   * Add an MFEM SubMesh to the problem.
    */
-  void initProblemOperator();
-
   void addSubMesh(const std::string & user_object_name,
                   const std::string & name,
                   InputParameters & parameters);
@@ -110,6 +109,15 @@ public:
                       InputParameters & parameters) override;
 
   /**
+   * Override of FEProblemBase::addElementalFieldVariable to be a no-op because we do not use the
+   * Marker/Indicator objects designed to work with libMesh infrastructure
+   */
+  void
+  addElementalFieldVariable(const std::string &, const std::string &, InputParameters &) override
+  {
+  }
+
+  /**
    * Override of ExternalProblem::addKernel. Uses ExternalProblem::addKernel to create a
    * MFEMGeneralUserObject representing the kernel in MOOSE, and creates corresponding MFEM kernel
    * to be used in the MFEM solve.
@@ -117,6 +125,34 @@ public:
   void addKernel(const std::string & kernel_name,
                  const std::string & name,
                  InputParameters & parameters) override;
+
+  /**
+   * Adds a real component kernel to the parent MFEMComplexKernel.
+   */
+  void addRealComponentToKernel(const std::string & kernel_name,
+                                const std::string & name,
+                                InputParameters & parameters);
+
+  /**
+   * Adds an imaginary component kernel to the parent MFEMComplexKernel.
+   */
+  void addImagComponentToKernel(const std::string & kernel_name,
+                                const std::string & name,
+                                InputParameters & parameters);
+
+  /**
+   * Adds a real component BC to the parent MFEMComplexIntegratedBC.
+   */
+  void addRealComponentToBC(const std::string & kernel_name,
+                            const std::string & name,
+                            InputParameters & parameters);
+
+  /**
+   * Adds an imaginary component BC to the parent MFEMComplexIntegratedBC.
+   */
+  void addImagComponentToBC(const std::string & kernel_name,
+                            const std::string & name,
+                            InputParameters & parameters);
 
   /**
    * Override of ExternalProblem::addAuxKernel. Uses ExternalProblem::addAuxKernel to create a
@@ -155,6 +191,23 @@ public:
   void addMFEMPreconditioner(const std::string & user_object_name,
                              const std::string & name,
                              InputParameters & parameters);
+  /**
+   * Override of FEProblemBase::addIndicator. Uses FEProblemBase::addIndicator to create an
+   * MFEMGeneralUserObject representing the error estimator in MOOSE, i.e. an
+   * MFEMIndicator to be used when setting up adaptive mesh refinement later.
+   */
+  void addIndicator(const std::string & type,
+                    const std::string & name,
+                    InputParameters & parameters) override;
+
+  /**
+   * Override of FEProblemBase::addMarker. Uses FEProblemBase::addMarker to create an
+   * MFEMGeneralUserObject representing the refinement marker in MOOSE, i.e. an
+   * MFEMRefinementMarker to be used for adaptive mesh refinement.
+   */
+  void addMarker(const std::string & type,
+                 const std::string & name,
+                 InputParameters & parameters) override;
 
   /**
    * Method called in AddMFEMSolverAction which will create the solver.
@@ -167,7 +220,10 @@ public:
    * Add the nonlinear solver to the system. TODO: allow user to specify solver options,
    * similar to the linear solvers.
    */
-  void addMFEMNonlinearSolver();
+  void addMFEMNonlinearSolver(unsigned int nl_max_its,
+                              mfem::real_t nl_abs_tol,
+                              mfem::real_t nl_rel_tol,
+                              unsigned int print_level);
 
   /**
    * Method used to get an mfem FEC depending on the variable family specified in the input file.
@@ -188,11 +244,36 @@ public:
    * current data specifying the FE problem.
    */
   MFEMProblemData & getProblemData() { return _problem_data; }
+  const MFEMProblemData & getProblemData() const { return _problem_data; }
+
+  /**
+   * Return the MPI communicator associated with this FE problem's mesh.
+   */
+  MPI_Comm getComm() { return getProblemData().comm; }
+
+  /**
+   * Return the ParMesh associated with a particular variable.
+   */
+  const mfem::ParMesh & getMFEMVariableMesh(std::string var_name)
+  {
+    if (_problem_data.gridfunctions.Has(var_name))
+      return *_problem_data.gridfunctions.Get(var_name)->ParFESpace()->GetParMesh();
+    else if (_problem_data.cmplx_gridfunctions.Has(var_name))
+      return *_problem_data.cmplx_gridfunctions.Get(var_name)->ParFESpace()->GetParMesh();
+    else
+      mooseError("Variable " + var_name +
+                 " not found in MFEMProblem real or complex gridfunctions.");
+  }
 
   /**
    * Displace the mesh, if mesh displacement is enabled.
    */
   void displaceMesh();
+
+  /**
+   * Rebalance the (necessarily nonconforming) mesh.
+   */
+  void rebalanceMesh(mfem::ParMesh & pmesh);
 
   /**
    * Returns optional reference to the displacement GridFunction to apply to nodes.
@@ -205,9 +286,48 @@ public:
   std::string solverTypeString(unsigned int solver_sys_num) override;
 
   /**
+   * Calls Update() on all FE spaces
+   */
+  void updateFESpaces();
+
+  /**
+   * Calls Update() on all gridfunctions
+   */
+  void updateGridFunctions();
+
+  /**
+   * If AMR is enabled, request (and perform if needed) h-refinement
+   */
+  bool hRefine() { return _problem_data.refiner && _problem_data.refiner->hRefine(); }
+
+  /**
+   * If AMR is enabled, request (and perform if needed) p-refinement
+   */
+  bool pRefine() { return _problem_data.refiner && _problem_data.refiner->pRefine(); }
+
+  /**
    * @returns a shared pointer to an MFEM parallel grid function
    */
-  std::shared_ptr<mfem::ParGridFunction> getGridFunction(const std::string & name);
+  std::shared_ptr<mfem::ParGridFunction> getGridFunction(const std::string & name)
+  {
+    return _problem_data.gridfunctions.GetShared(name);
+  }
+
+  /**
+   * @returns a shared pointer to an MFEM parallel complex grid function
+   */
+  std::shared_ptr<mfem::ParComplexGridFunction> getComplexGridFunction(const std::string & name)
+  {
+    return _problem_data.cmplx_gridfunctions.GetShared(name);
+  }
+
+  enum class NumericType
+  {
+    REAL,
+    COMPLEX
+  };
+
+  NumericType num_type;
 
 protected:
   MFEMProblemData _problem_data;

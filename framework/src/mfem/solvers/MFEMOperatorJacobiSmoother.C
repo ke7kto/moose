@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMOperatorJacobiSmoother.h"
 #include "MFEMProblem.h"
@@ -26,11 +26,11 @@ MFEMOperatorJacobiSmoother::validParams()
 MFEMOperatorJacobiSmoother::MFEMOperatorJacobiSmoother(const InputParameters & parameters)
   : MFEMSolverBase(parameters)
 {
-  constructSolver(parameters);
+  constructSolver();
 }
 
 void
-MFEMOperatorJacobiSmoother::constructSolver(const InputParameters &)
+MFEMOperatorJacobiSmoother::constructSolver()
 {
   _solver = std::make_unique<mfem::OperatorJacobiSmoother>();
 }
@@ -38,8 +38,11 @@ MFEMOperatorJacobiSmoother::constructSolver(const InputParameters &)
 void
 MFEMOperatorJacobiSmoother::updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdofs)
 {
-  if (getParam<bool>("low_order_refined"))
+  if (_lor)
+  {
+    checkSpectralEquivalence(a);
     _solver.reset(new mfem::LORSolver<mfem::OperatorJacobiSmoother>(a, tdofs));
+  }
 }
 
 #endif

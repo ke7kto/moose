@@ -94,7 +94,7 @@ Applications:
     heat_transfer:
         exe_directory: modules/combined
         app_types:
-            - HeatConductionApp
+            - HeatTransferApp
         content_directory: modules/heat_transfer/doc/content
         unregister:
             - framework/doc/unregister.yml
@@ -405,11 +405,6 @@ Requirements:
     reactor:
         directories:
             - modules/reactor
-
-    richards:
-        directories:
-            - modules/richards
-        log_missing: NONE # deprecated module
 
     scalar_transport:
         directories:

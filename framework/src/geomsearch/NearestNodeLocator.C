@@ -55,6 +55,9 @@ NearestNodeLocator::NearestNodeLocator(SubProblem & subproblem,
     mooseError("NearestNodeLocator being created for boundaries ", _boundary1, " and ", _boundary2,
   ", but boundary ", _boundary2, " does not exist");
   */
+
+  // Request the nodeToElem map upfront
+  _mesh.nodeToElemMap();
 }
 
 NearestNodeLocator::~NearestNodeLocator() = default;
@@ -238,7 +241,9 @@ NearestNodeLocator::distance(dof_id_type node_id)
 const Node *
 NearestNodeLocator::nearestNode(dof_id_type node_id)
 {
-  return _nearest_node_info[node_id]._nearest_node;
+  const Node * returnval = _nearest_node_info[node_id]._nearest_node;
+  libmesh_assert(_mesh.getMesh().get_boundary_info().has_boundary_id(returnval, _boundary1));
+  return returnval;
 }
 
 void

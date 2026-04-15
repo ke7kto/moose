@@ -12,7 +12,7 @@ pin_diameter = 0.00950
     n_cells = 10
     pitch = 0.0126
     pin_diameter = ${pin_diameter}
-    gap = 0.00095 # the half gap between sub-channel assemblies
+    side_gap = 0.00095
     heated_length = 1.0
     spacer_z = '0.0'
     spacer_k = '0.0'
@@ -48,6 +48,17 @@ pin_diameter = 0.00950
   verbose_subchannel = true
   implicit = true
   segregated = false
+  friction_closure = 'MATRA'
+  pin_HTC_closure = 'Dittus-Boelter'
+[]
+
+[SCMClosures]
+  [MATRA]
+    type = SCMFrictionMATRA
+  []
+  [Dittus-Boelter]
+    type = SCMHTCDittusBoelter
+  []
 []
 
 [ICs]

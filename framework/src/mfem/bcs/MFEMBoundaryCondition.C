@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMBoundaryCondition.h"
 #include "MFEMProblem.h"
@@ -29,12 +29,8 @@ MFEMBoundaryCondition::validParams()
 
 MFEMBoundaryCondition::MFEMBoundaryCondition(const InputParameters & parameters)
   : MFEMGeneralUserObject(parameters),
-    MFEMBoundaryRestrictable(parameters,
-                             *getMFEMProblem()
-                                  .getProblemData()
-                                  .gridfunctions.GetRef(getParam<VariableName>("variable"))
-                                  .ParFESpace()
-                                  ->GetParMesh()),
+    MFEMBoundaryRestrictable(
+        parameters, getMFEMProblem().getMFEMVariableMesh(getParam<VariableName>("variable"))),
     _test_var_name(getParam<VariableName>("variable"))
 {
 }

@@ -7,14 +7,11 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #pragma once
+
 #include "MFEMSolverBase.h"
-#include "libmesh/ignore_warnings.h"
-#include <mfem.hpp>
-#include "libmesh/restore_warnings.h"
-#include <memory>
 
 /**
  * Wrapper for mfem::CGSolver.
@@ -30,7 +27,7 @@ public:
   void updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdofs) override;
 
 protected:
-  void constructSolver(const InputParameters & parameters) override;
+  void constructSolver() override;
 };
 
 #endif

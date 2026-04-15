@@ -93,6 +93,9 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
   [displacement]
     block = subchannel
   []
+  [ff]
+    block = subchannel
+  []
 []
 
 [FluidProperties]
@@ -117,6 +120,17 @@ unheated_length_exit = '${fparse 26.9*scale_factor}'
   interpolation_scheme = 'upwind'
   deformation = true
   verbose_subchannel = true
+  pin_HTC_closure = 'gnielinski'
+  friction_closure = 'cheng'
+[]
+
+[SCMClosures]
+  [cheng]
+    type = SCMFrictionUpdatedChengTodreas
+  []
+  [gnielinski]
+    type = SCMHTCGnielinski
+  []
 []
 
 [ICs]

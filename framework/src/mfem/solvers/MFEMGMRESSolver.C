@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMGMRESSolver.h"
 #include "MFEMProblem.h"
@@ -32,14 +32,13 @@ MFEMGMRESSolver::validParams()
 
 MFEMGMRESSolver::MFEMGMRESSolver(const InputParameters & parameters) : MFEMSolverBase(parameters)
 {
-  constructSolver(parameters);
+  constructSolver();
 }
 
 void
-MFEMGMRESSolver::constructSolver(const InputParameters &)
+MFEMGMRESSolver::constructSolver()
 {
-  auto solver =
-      std::make_unique<mfem::GMRESSolver>(getMFEMProblem().mesh().getMFEMParMesh().GetComm());
+  auto solver = std::make_unique<mfem::GMRESSolver>(getMFEMProblem().getComm());
   solver->SetRelTol(getParam<mfem::real_t>("l_tol"));
   solver->SetAbsTol(getParam<mfem::real_t>("l_abs_tol"));
   solver->SetMaxIter(getParam<int>("l_max_its"));
@@ -61,6 +60,7 @@ MFEMGMRESSolver::updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & tdof
   }
   else if (_lor)
   {
+    checkSpectralEquivalence(a);
     auto lor_solver = new mfem::LORSolver<mfem::GMRESSolver>(a, tdofs);
     lor_solver->GetSolver().SetRelTol(getParam<mfem::real_t>("l_tol"));
     lor_solver->GetSolver().SetAbsTol(getParam<mfem::real_t>("l_abs_tol"));

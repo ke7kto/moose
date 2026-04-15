@@ -7,7 +7,7 @@
 //* Licensed under LGPL 2.1, please see LICENSE for details
 //* https://www.gnu.org/licenses/lgpl-2.1.html
 
-#ifdef MFEM_ENABLED
+#ifdef MOOSE_MFEM_ENABLED
 
 #include "MFEMHypreBoomerAMG.h"
 #include "MFEMFESpace.h"
@@ -37,12 +37,11 @@ MFEMHypreBoomerAMG::MFEMHypreBoomerAMG(const InputParameters & parameters)
     _mfem_fespace(isParamSetByUser("fespace") ? getUserObject<MFEMFESpace>("fespace").getFESpace()
                                               : nullptr)
 {
-  mfem::Hypre::Init();
-  constructSolver(parameters);
+  constructSolver();
 }
 
 void
-MFEMHypreBoomerAMG::constructSolver(const InputParameters &)
+MFEMHypreBoomerAMG::constructSolver()
 {
   auto solver = std::make_unique<mfem::HypreBoomerAMG>();
 
@@ -63,6 +62,7 @@ MFEMHypreBoomerAMG::updateSolver(mfem::ParBilinearForm & a, mfem::Array<int> & t
 {
   if (_lor)
   {
+    checkSpectralEquivalence(a);
     auto lor_solver = new mfem::LORSolver<mfem::HypreBoomerAMG>(a, tdofs);
     lor_solver->GetSolver().SetTol(getParam<mfem::real_t>("l_tol"));
     lor_solver->GetSolver().SetMaxIter(getParam<int>("l_max_its"));
