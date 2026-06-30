@@ -1,9 +1,10 @@
 [Tests]
   design = 'LeadLithiumFluidProperties.md'
   issues = '#33216'
-  [Lead_litium_check]
+  [Lead_lithium_check]
     type = CSVDiff
     input = 'lead_lithium_fp.i'
+    csvdiff = 'lead_lithium_fp_out.csv'
     requirement = 'The system shall provide material properties of lead lithuim abouve the melting point.'
   []
 
@@ -11,5 +12,6 @@
     type = RunException
     input = 'lead_lithium_fp.i'
     requirement = 'The system shall flag the heat capacity calculated outside the vaild range as improper.'
+    expect_err = 'Invalid solution'
   []
 []

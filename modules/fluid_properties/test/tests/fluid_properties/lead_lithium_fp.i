@@ -20,7 +20,6 @@
 [FluidProperties]
   [fp]
     type = LeadLithiumFluidProperties 
-    k = k_from_p_T
   []
 []
 
@@ -33,11 +32,11 @@
     
     outputs = 'all'
 
-    # output_properties = 'density k cp cv viscosity h' 
-    # output_properties = 'density k cp' 
+#    # output_properties = 'density k cp cv viscosity h' 
+#    # output_properties = 'density k cp' 
     output_properties = 'k' 
-    
-    compute_sound_speed = false
+#    
+#    compute_sound_speed = false
   []
 []
 
@@ -51,10 +50,10 @@
   #   type = ElementAverageValue
   #   variable = density
   # []
-  [Thermal_Conductivity]
-    type = ElementAverageValue
-    variable = k
-  []
+#  [Thermal_Conductivity]
+#    type = ElementAverageValue
+#    variable = k
+#  []
 []
 
 # [Executioner]
