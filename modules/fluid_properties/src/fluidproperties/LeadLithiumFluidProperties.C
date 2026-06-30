@@ -27,12 +27,14 @@ LeadLithiumFluidProperties::LeadLithiumFluidProperties(const InputParameters & p
 std::string
 LeadLithiumFluidProperties::fluidName() const
 {
+  std::cout << "fluidName" << std::endl;
   return "LeadLithium";
 }
 
 Real
 LeadLithiumFluidProperties::molarMass() const
 {
+  std::cout << "molarMass" << std::endl;
   // Approximate molar mass for 83% Pb (207.2 g/mol) and 17% Li (6.94 g/mol) by atomic fraction
   return 1.73e-1; // in kg/mol
 }
@@ -40,6 +42,7 @@ LeadLithiumFluidProperties::molarMass() const
 Real
 LeadLithiumFluidProperties::rho_from_p_T(Real /*p*/, Real T) const
 {
+  std::cout << "rho_from_p_T" << std::endl;
   if (T < _T_mo || T > 880)
     flagInvalidSolution("Temperature out of bounds for the PbLi density computation");
   return 10520.35 - 1.19051 * T;
@@ -49,6 +52,7 @@ void
 LeadLithiumFluidProperties::rho_from_p_T(
     Real p, Real T, Real & rho, Real & drho_dp, Real & drho_dT) const
 {
+  std::cout << "rho_from_p_T_extended" << std::endl;
   rho = rho_from_p_T(p, T);
   drho_dp = 0;
   drho_dT = -1.19051;
@@ -58,6 +62,7 @@ void
 LeadLithiumFluidProperties::rho_from_p_T(
     const ADReal & p, const ADReal & T, ADReal & rho, ADReal & drho_dp, ADReal & drho_dT) const
 {
+  std::cout << "rho_from_p_T_extended_2" << std::endl;
   rho = SinglePhaseFluidProperties::rho_from_p_T(p, T);
   drho_dp = 0;
   drho_dT = -1.19051;
@@ -66,12 +71,14 @@ LeadLithiumFluidProperties::rho_from_p_T(
 Real
 LeadLithiumFluidProperties::v_from_p_T(Real p, Real T) const
 {
+  std::cout << "v_from_p_T" << std::endl;
   return 1.0 / rho_from_p_T(p, T);
 }
 
 void
 LeadLithiumFluidProperties::v_from_p_T(Real p, Real T, Real & v, Real & dv_dp, Real & dv_dT) const
 {
+  std::cout << "v_from_p_T_extended" << std::endl;
   v = v_from_p_T(p, T);
   dv_dp = 0;
   dv_dT = 1.19051 / Utility::pow<2>(10520.35 - 1.19051 * T);
@@ -80,6 +87,7 @@ LeadLithiumFluidProperties::v_from_p_T(Real p, Real T, Real & v, Real & dv_dp, R
 Real
 LeadLithiumFluidProperties::T_from_v_e(Real v, Real /*e*/) const
 {
+  std::cout << "t_from_v_e" << std::endl;
   Real T = (10520.35 - 1.0 / v) / 1.19051;
   // This is computed from rho(T), thus shares the same validity range
   if (T < _T_mo || T > 880)
@@ -90,6 +98,7 @@ LeadLithiumFluidProperties::T_from_v_e(Real v, Real /*e*/) const
 void
 LeadLithiumFluidProperties::T_from_v_e(Real v, Real e, Real & T, Real & dT_dv, Real & dT_de) const
 {
+  std::cout << "t_from_v_e" << std::endl;
   T = T_from_v_e(v, e);
   dT_de = 0;
   dT_dv = 1.0 / (1.19051 * v * v);
@@ -98,18 +107,21 @@ LeadLithiumFluidProperties::T_from_v_e(Real v, Real e, Real & T, Real & dT_dv, R
 Real
 LeadLithiumFluidProperties::bulk_modulus_from_p_T(Real /*p*/, Real T) const
 {
+  std::cout << "b_from_p_T" << std::endl;
   return Utility::pow<2>(c_from_p_T(0, T)) * rho_from_p_T(0, T);
 }
 
 Real
 LeadLithiumFluidProperties::c_from_p_T(Real /*p*/, Real T) const
 {
+  std::cout << "c_from_p_T" << std::endl;
   return 1876 - 0.306 * T;
 }
 
 Real
 LeadLithiumFluidProperties::c_from_v_e(Real v, Real e) const
 {
+  std::cout << "c_from_v_e" << std::endl;
   Real T = T_from_v_e(v, e);
   return 1876 - 0.306 * T;
 }
@@ -117,6 +129,7 @@ LeadLithiumFluidProperties::c_from_v_e(Real v, Real e) const
 ADReal
 LeadLithiumFluidProperties::c_from_v_e(const ADReal & v, const ADReal & e) const
 {
+  std::cout << "c_from_v_e" << std::endl;
   ADReal T = SinglePhaseFluidProperties::T_from_v_e(v, e);
   return 1876 - 0.306 * (T - 273.15);
 }
@@ -124,6 +137,7 @@ LeadLithiumFluidProperties::c_from_v_e(const ADReal & v, const ADReal & e) const
 Real
 LeadLithiumFluidProperties::p_from_v_e(Real v, Real e) const
 {
+  std::cout << "p_from_v_e" << std::endl;
   Real h = h_from_v_e(v, e);
   return (h - e) / v;
 }
@@ -131,6 +145,7 @@ LeadLithiumFluidProperties::p_from_v_e(Real v, Real e) const
 void
 LeadLithiumFluidProperties::p_from_v_e(Real v, Real e, Real & p, Real & dp_dv, Real & dp_de) const
 {
+  std::cout << "p_from_v_e" << std::endl;
   p = p_from_v_e(v, e);
   Real h, dh_dv, dh_de;
   h_from_v_e(v, e, h, dh_dv, dh_de);
@@ -141,6 +156,7 @@ LeadLithiumFluidProperties::p_from_v_e(Real v, Real e, Real & p, Real & dp_dv, R
 Real
 LeadLithiumFluidProperties::cp_from_v_e(Real v, Real e) const
 {
+  std::cout << "cp_from_v_e" << std::endl;
   Real T = T_from_v_e(v, e);
   if (T < _T_mo || T > 800)
     flagInvalidSolution("Temperature out of bounds for the PbLi specific heat computation");
@@ -151,6 +167,7 @@ void
 LeadLithiumFluidProperties::cp_from_v_e(
     Real v, Real e, Real & cp, Real & dcp_dv, Real & dcp_de) const
 {
+  std::cout << "cp_from_v_e" << std::endl;
   Real T, dT_dv, dT_de;
   T_from_v_e(v, e, T, dT_dv, dT_de);
   cp = cp_from_v_e(v, e);
@@ -162,6 +179,7 @@ LeadLithiumFluidProperties::cp_from_v_e(
 Real
 LeadLithiumFluidProperties::cv_from_p_T(Real p, Real T) const
 {
+  std::cout << "cp_from_p_T" << std::endl;
   Real rho, drho_dT, drho_dp;
   rho_from_p_T(p, T, rho, drho_dp, drho_dT);
   Real alpha = -drho_dT / rho;
@@ -174,6 +192,7 @@ void
 LeadLithiumFluidProperties::cv_from_p_T(
     Real p, Real T, Real & cv, Real & dcv_dp, Real & dcv_dT) const
 {
+  std::cout << "cp_from_p_T" << std::endl;
   cv = cv_from_p_T(p, T);
   // A full analytical derivative is complex; here we assume minimal pressure dependence.
   dcv_dp = 0;
@@ -185,6 +204,7 @@ LeadLithiumFluidProperties::cv_from_p_T(
 Real
 LeadLithiumFluidProperties::cv_from_v_e(Real v, Real e) const
 {
+  std::cout << "cp_from_v_e" << std::endl;
   Real p = p_from_v_e(v, e);
   Real T = T_from_v_e(v, e);
   return cv_from_p_T(p, T);
@@ -194,6 +214,7 @@ void
 LeadLithiumFluidProperties::cv_from_v_e(
     Real v, Real e, Real & cv, Real & dcv_dv, Real & dcv_de) const
 {
+  std::cout << "cp_from_v_e" << std::endl;
   Real p, dp_dv, dp_de;
   p_from_v_e(v, e, p, dp_dv, dp_de);
   Real T, dT_dv, dT_de;
@@ -207,6 +228,7 @@ LeadLithiumFluidProperties::cv_from_v_e(
 Real
 LeadLithiumFluidProperties::mu_from_v_e(Real v, Real e) const
 {
+  std::cout << "mu_from_v_e" << std::endl;
   Real T = T_from_v_e(v, e);
   if (T < _T_mo || T > 625)
     flagInvalidSolution("Temperature out of bounds for the PbLi viscosity computation");
@@ -217,6 +239,7 @@ void
 LeadLithiumFluidProperties::mu_from_v_e(
     Real v, Real e, Real & mu, Real & dmu_dv, Real & dmu_de) const
 {
+  std::cout << "mu_from_v_e" << std::endl;
   Real T, dT_dv, dT_de;
   T_from_v_e(v, e, T, dT_dv, dT_de);
   mu = mu_from_v_e(v, e);
@@ -228,6 +251,7 @@ LeadLithiumFluidProperties::mu_from_v_e(
 Real
 LeadLithiumFluidProperties::k_from_v_e(Real v, Real e) const
 {
+  std::cout << "k_from_v_e" << std::endl;
   Real T = T_from_v_e(v, e);
   if (T < _T_mo || T > 873)
     flagInvalidSolution("Temperature out of bounds for the PbLi dynamic viscosity computation");
@@ -237,6 +261,7 @@ LeadLithiumFluidProperties::k_from_v_e(Real v, Real e) const
 void
 LeadLithiumFluidProperties::k_from_v_e(Real v, Real e, Real & k, Real & dk_dv, Real & dk_de) const
 {
+  std::cout << "k_from_v_e" << std::endl;
   Real T, dT_dv, dT_de;
   T_from_v_e(v, e, T, dT_dv, dT_de);
   k = k_from_v_e(v, e);
@@ -247,6 +272,7 @@ LeadLithiumFluidProperties::k_from_v_e(Real v, Real e, Real & k, Real & dk_dv, R
 Real
 LeadLithiumFluidProperties::h_from_p_T(Real /*p*/, Real T) const
 {
+  std::cout << "h_from_p_T" << std::endl;
   if (T < _T_mo || T > 800)
     flagInvalidSolution("Temperature out of bounds for the PbLi enthalpy computation");
   return 195.0 * (T - _T_mo) - 0.5 * 9.116e-3 * (T * T - _T_mo * _T_mo);
@@ -255,6 +281,7 @@ LeadLithiumFluidProperties::h_from_p_T(Real /*p*/, Real T) const
 void
 LeadLithiumFluidProperties::h_from_p_T(Real p, Real T, Real & h, Real & dh_dp, Real & dh_dT) const
 {
+  std::cout << "h_from_p_T" << std::endl;
   h = h_from_p_T(p, T);
   dh_dp = 0;
   dh_dT = cp_from_p_T(p, T);
@@ -263,6 +290,7 @@ LeadLithiumFluidProperties::h_from_p_T(Real p, Real T, Real & h, Real & dh_dp, R
 Real
 LeadLithiumFluidProperties::h_from_v_e(Real v, Real e) const
 {
+  std::cout << "h_from_v_e" << std::endl;
   Real T = T_from_v_e(v, e);
   return h_from_p_T(0, T);
 }
@@ -270,6 +298,7 @@ LeadLithiumFluidProperties::h_from_v_e(Real v, Real e) const
 void
 LeadLithiumFluidProperties::h_from_v_e(Real v, Real e, Real & h, Real & dh_dv, Real & dh_de) const
 {
+  std::cout << "h_from_v_e" << std::endl;
   Real T, dT_dv, dT_de;
   T_from_v_e(v, e, T, dT_dv, dT_de);
   h = h_from_v_e(v, e);
@@ -281,6 +310,7 @@ LeadLithiumFluidProperties::h_from_v_e(Real v, Real e, Real & h, Real & dh_dv, R
 Real
 LeadLithiumFluidProperties::e_from_p_T(Real p, Real T) const
 {
+  std::cout << "e_from_p_T" << std::endl;
   Real v = v_from_p_T(p, T);
   Real h = h_from_p_T(p, T);
   return h - p * v;
@@ -289,6 +319,7 @@ LeadLithiumFluidProperties::e_from_p_T(Real p, Real T) const
 void
 LeadLithiumFluidProperties::e_from_p_T(Real p, Real T, Real & e, Real & de_dp, Real & de_dT) const
 {
+  std::cout << "e_from_p_T" << std::endl;
   Real dh_dp, dv_dp, dh_dT, dv_dT, v, h;
   h_from_p_T(p, T, h, dh_dp, dh_dT);
   v_from_p_T(p, T, v, dv_dp, dv_dT);
@@ -300,6 +331,7 @@ LeadLithiumFluidProperties::e_from_p_T(Real p, Real T, Real & e, Real & de_dp, R
 Real
 LeadLithiumFluidProperties::e_from_p_rho(Real p, Real rho) const
 {
+  std::cout << "e_from_p_rho" << std::endl;
   return e_from_p_T(p, T_from_p_rho(p, rho));
 }
 
@@ -307,6 +339,7 @@ void
 LeadLithiumFluidProperties::e_from_p_rho(
     Real p, Real rho, Real & e, Real & de_dp, Real & de_drho) const
 {
+  std::cout << "e_from_p_rho" << std::endl;
   Real T, dT_dp, dT_drho;
   T_from_p_rho(p, rho, T, dT_dp, dT_drho);
   Real de_dp_T, de_dT;
@@ -318,6 +351,7 @@ LeadLithiumFluidProperties::e_from_p_rho(
 Real
 LeadLithiumFluidProperties::T_from_p_rho(Real /*p*/, Real rho) const
 {
+  std::cout << "T_from_p_rho" << std::endl;
   Real T = (10520.35 - rho) / 1.19051;
   if (T < _T_mo || T > 880)
     flagInvalidSolution("Temperature out of bounds for the PbLi density computation");
@@ -328,6 +362,7 @@ void
 LeadLithiumFluidProperties::T_from_p_rho(
     Real p, Real rho, Real & T, Real & dT_dp, Real & dT_drho) const
 {
+  std::cout << "T_from_p_rho" << std::endl;
   T = T_from_p_rho(p, rho);
   dT_dp = 0;
   dT_drho = -1.0 / 1.19051;
@@ -338,6 +373,7 @@ LeadLithiumFluidProperties::T_from_p_h(Real /*p*/, Real h) const
 {
   // h = 195.0 * (T - _T_mo) - 0.5 * 9.116e-3 * (T * T - _T_mo * _T_mo);
   //
+  std::cout << "T_from_p_h" << std::endl;
   const auto a = -0.5 * 9.116e-3;
   const auto b = 195.;
   const auto c = 0.5 * 9.116e-3 * _T_mo * _T_mo - h - 195. * _T_mo;
@@ -348,6 +384,7 @@ LeadLithiumFluidProperties::T_from_p_h(Real /*p*/, Real h) const
 void
 LeadLithiumFluidProperties::T_from_p_h(Real p, Real h, Real & T, Real & dT_dp, Real & dT_dh) const
 {
+  std::cout << "T_from_p_h" << std::endl;
   T = T_from_p_h(p, h);
   dT_dp = 0;
   Real h1, dh_dp, dh_dT;
@@ -358,6 +395,7 @@ LeadLithiumFluidProperties::T_from_p_h(Real p, Real h, Real & T, Real & dT_dp, R
 Real
 LeadLithiumFluidProperties::cp_from_p_T(Real /*p*/, Real T) const
 {
+  std::cout << "cp_from_p_T" << std::endl;
   if (T < _T_mo || T > 800)
     flagInvalidSolution("Temperature out of bounds for the PbLi specific heat computation");
   return 195.0 - 9.116e-3 * T;
@@ -367,6 +405,7 @@ void
 LeadLithiumFluidProperties::cp_from_p_T(
     Real p, Real T, Real & cp, Real & dcp_dp, Real & dcp_dT) const
 {
+  std::cout << "cp_from_p_T" << std::endl;
   cp = cp_from_p_T(p, T);
   dcp_dp = 0;
   dcp_dT = -9.116e-3;
@@ -375,6 +414,7 @@ LeadLithiumFluidProperties::cp_from_p_T(
 Real
 LeadLithiumFluidProperties::mu_from_p_T(Real /*p*/, Real T) const
 {
+  std::cout << "mu_from_p_T" << std::endl;
   if (T < _T_mo || T > 625)
     flagInvalidSolution("Temperature out of bounds for the PbLi viscosity computation");
   return 1.87e-4 * std::exp(11640.0 / (FluidProperties::_R * T));
@@ -384,6 +424,7 @@ void
 LeadLithiumFluidProperties::mu_from_p_T(
     Real p, Real T, Real & mu, Real & dmu_dp, Real & dmu_dT) const
 {
+  std::cout << "mu_from_p_T" << std::endl;
   mu = mu_from_p_T(p, T);
   dmu_dp = 0;
   dmu_dT = -11640.0 / (FluidProperties::_R * T * T) * mu;
@@ -392,6 +433,7 @@ LeadLithiumFluidProperties::mu_from_p_T(
 Real
 LeadLithiumFluidProperties::k_from_p_T(Real /*p*/, Real T) const
 {
+  std::cout << "k_from_p_T" << std::endl;
   if (T < _T_mo || T > 873)
     flagInvalidSolution("Temperature out of bounds for the PbLi dynamic viscosity computation");
   return 14.51 + 1.9631e-2 * T;
@@ -400,6 +442,7 @@ LeadLithiumFluidProperties::k_from_p_T(Real /*p*/, Real T) const
 void
 LeadLithiumFluidProperties::k_from_p_T(Real p, Real T, Real & k, Real & dk_dp, Real & dk_dT) const
 {
+  std::cout << "k_from_p_T" << std::endl;
   k = k_from_p_T(p, T);
   dk_dp = 0;
   dk_dT = 0.019631;
